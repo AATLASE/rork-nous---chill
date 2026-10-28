@@ -106,7 +106,8 @@ push » du profil dira que le navigateur ne les gère pas.
 ## Comment ça marche
 
 ```
-insert dans notifications          (triggers de 20260802000000 et 20260803000000)
+insert dans notifications          (triggers de 20260802000000 et 20260803000000,
+        │                           relances de 20260806000000 et 20260806010000)
         │
         │  trigger notifications_send_push → pg_net (asynchrone)
         ▼

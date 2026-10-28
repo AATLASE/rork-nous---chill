@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Réinitialise ton mot de passe</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#0B0B0C;">
+    <!-- Preheader : la ligne grise que la boîte mail affiche sous l'objet. -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0B0B0C;">
+      Choisis un nouveau mot de passe pour retrouver tes épisodes.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0B0B0C" style="background-color:#0B0B0C;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+            <!-- Marque -->
+            <tr>
+              <td style="padding:0 4px 24px 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="40" height="40" align="center" valign="middle" bgcolor="#EF233C" style="width:40px;height:40px;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;font-weight:800;color:#FFFFFF;line-height:40px;">G</td>
+                    <td style="padding-left:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.4px;color:#F7F7F7;">Gather</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Carte -->
+            <tr>
+              <td bgcolor="#1C1C1F" style="background-color:#1C1C1F;border:1px solid #303034;border-radius:16px;padding:36px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#EF233C;">Mot de passe oublié</p>
+                <h1 style="margin:0 0 16px 0;font-size:26px;line-height:31px;font-weight:800;letter-spacing:-0.6px;color:#F7F7F7;">
+                  Choisis un nouveau mot de passe
+                </h1>
+                <p style="margin:0 0 28px 0;font-size:16px;line-height:24px;color:#B4B4BB;">
+                  {{ if .Data.name }}{{ .Data.name }}, tu{{ else }}Tu{{ end }} as demandé à réinitialiser le mot de passe du compte <strong style="color:#F7F7F7;">{{ .Email }}</strong>. Touche le bouton ci-dessous : Gather s'ouvrira directement sur l'écran du nouveau mot de passe.
+                </p>
+
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="#EF233C" style="border-radius:10px;">
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:15px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">Changer mon mot de passe</a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:28px 0 0 0;font-size:13px;line-height:20px;color:#8A8A92;">
+                  Ce lien ne sert qu'une fois et expire au bout d'une heure.<br /><br />
+                  Le bouton ne marche pas ? Copie ce lien dans ton navigateur :<br />
+                  <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#EF233C;word-break:break-all;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Pied -->
+            <tr>
+              <td style="padding:24px 4px 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#8A8A92;">
+                Tu n'as rien demandé ? Ignore cet email : ton mot de passe actuel reste valable et personne n'a accès à ton compte.<br /><br />
+                Gather — capture tes épisodes, invite tes proches et revis chaque saison de ta vie.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
