@@ -12,6 +12,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Card, Screen, SectionHeader } from "@/components/ui/Card";
 import { EmptyState, Loader } from "@/components/ui/Feedback";
 import { FadeIn, PressableScale, Pulse } from "@/components/ui/motion";
+import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, shadows, spacing } from "@/constants/theme";
 import { formatDateShort, getSeasonStatus, type SeasonStatus } from "@/lib/format";
@@ -27,30 +28,10 @@ type ViewMode = "grid" | "timeline";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 2 - spacing.md) / 2;
 
-function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  return (
-    <View style={{ flexDirection: "row", backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 3 }}>
-      {(["grid", "timeline"] as ViewMode[]).map((m) => {
-        const active = mode === m;
-        const Icon = m === "grid" ? LayoutGrid : Rows3;
-        return (
-          <PressableScale
-            key={m}
-            onPress={() => onChange(m)}
-            withHaptic={false}
-            accessibilityRole="button"
-            accessibilityLabel={m === "grid" ? "Affichage en grille" : "Affichage en timeline"}
-            accessibilityState={{ selected: active }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.sm, backgroundColor: active ? colors.surface : "transparent" }}
-          >
-            <Icon size={15} color={active ? colors.text : colors.textMuted} />
-            <AppText style={{ fontSize: 13, fontWeight: "600", color: active ? colors.text : colors.textMuted }}>{m === "grid" ? "Grille" : "Timeline"}</AppText>
-          </PressableScale>
-        );
-      })}
-    </View>
-  );
-}
+const VIEW_MODES = [
+  { value: "grid" as const, label: "Grille", icon: LayoutGrid, accessibilityLabel: "Affichage en grille" },
+  { value: "timeline" as const, label: "Timeline", icon: Rows3, accessibilityLabel: "Affichage en timeline" },
+];
 
 /** "Saison en cours · J-12", or whatever the season is doing instead. */
 function seasonLine(status: SeasonStatus): string {
@@ -257,7 +238,7 @@ export default function MomentsScreen() {
       <View style={{ marginTop: spacing.xl }}>
         <SectionHeader
           title={`Vos épisodes${episodes && episodes.length > 0 ? ` · ${episodes.length}` : ""}`}
-          action={episodes && episodes.length > 0 ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}
+          action={episodes && episodes.length > 0 ? <SegmentedToggle<ViewMode> options={VIEW_MODES} value={mode} onChange={setMode} /> : undefined}
         />
 
         {episodesLoading ? (

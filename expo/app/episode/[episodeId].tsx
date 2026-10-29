@@ -72,7 +72,7 @@ import { useSpace } from "@/hooks/useSpaces";
 import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
 import { CommentItem } from "@/components/episode/CommentItem";
-import { ReviewContentRows } from "@/components/episode/ReviewContentRows";
+import { RevealedReviews } from "@/components/episode/RevealedReviews";
 
 
 /** A member as the "@" list shows them: a name to insert, a face, a role. */
@@ -452,27 +452,7 @@ export default function EpisodeDetailScreen() {
               reviewers.length === 0 ? (
                 <AppText variant="bodyMuted">Personne n&apos;a participé à cet épisode.</AppText>
               ) : (
-                <View style={{ gap: spacing.md }}>
-                  {reviewers.map((member) => {
-                    const review = (reviews ?? []).find((r) => r.author_id === member.user_id);
-                    return (
-                      <Card key={member.user_id} style={{ gap: spacing.md }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                            <Avatar profile={member.profile} size={36} />
-                            <AppText variant="h3">{member.profile?.name ?? "Membre"}</AppText>
-                          </View>
-                          {review?.rating ? <RatingStars value={review.rating} size={16} /> : null}
-                        </View>
-                        {review ? (
-                          <ReviewContentRows review={review} />
-                        ) : (
-                          <AppText variant="bodyMuted">N&apos;a pas rédigé de review.</AppText>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </View>
+                <RevealedReviews reviewers={reviewers} reviews={reviews ?? []} />
               )
             ) : (
               <>
