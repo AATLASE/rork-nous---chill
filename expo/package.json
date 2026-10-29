@@ -8,7 +8,8 @@
     "start": "bunx rork start -p jy0ai6r2cyb3uwixfwgm3",
     "start-web": "bunx rork start -p jy0ai6r2cyb3uwixfwgm3 --web",
     "start-web-dev": "DEBUG=expo* bunx rork start -p jy0ai6r2cyb3uwixfwgm3 --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
