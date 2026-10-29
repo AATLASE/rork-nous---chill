@@ -63,6 +63,7 @@
     "typescript": "~5.9.2"
   },
   "overrides": {
-    "axios": "1.13.2"
+    "axios": "1.13.2",
+    "@ai-sdk/react": "2.0.107"
   }
 }
