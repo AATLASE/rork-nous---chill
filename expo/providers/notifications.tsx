@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { colors } from "@/constants/theme";
+import { queryClient } from "@/lib/queryClient";
 import { loadNotifications, registerPushToken } from "@/lib/push";
 import { useAuth } from "@/providers/auth";
 
@@ -20,6 +21,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const openFromNotification = (identifier: string, url: string | undefined) => {
     if (handledTap.current === identifier) return;
     handledTap.current = identifier;
+    // The notification is about something new: whatever is cached is older.
+    void queryClient.invalidateQueries();
     try {
       router.push((url || "/notifications") as never);
     } catch {
@@ -89,12 +92,22 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       }
     })();
 
+    // The badge counted unread pushes and was never reset: opening the app
+    // clears it, the list inside the app keeps the details.
+    Notifications.setBadgeCountAsync(0).catch(() => {});
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") Notifications.setBadgeCountAsync(0).catch(() => {});
+    });
+
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { url?: string } | undefined;
       openFromNotification(response.notification.request.identifier, data?.url);
     });
 
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      appState.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 

@@ -130,3 +130,22 @@ export function useUpsertReview() {
     },
   });
 }
+
+/**
+ * The space owner reveals one episode without waiting for a participant who
+ * will never write (supabase/migrations/20261029090000_reliability.sql).
+ */
+export function useRevealEpisodeNow(episodeId: string, spaceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      const { error } = await supabase.rpc("reveal_episode_now", { p_episode_id: episodeId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.episode(episodeId) });
+      queryClient.invalidateQueries({ queryKey: qk.episodes(spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.reviews(episodeId) });
+    },
+  });
+}

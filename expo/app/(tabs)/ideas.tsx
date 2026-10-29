@@ -168,7 +168,11 @@ export default function IdeasScreen() {
                     </View>
 
                     <PressableScale
-                      onPress={() => (participate ? toggleVote.mutate({ ideaId: idea.id, voted: idea.voted }) : toast.info("Seuls les membres peuvent voter."))}
+                      onPress={() => {
+                        if (!participate) return toast.info("Seuls les membres peuvent voter.");
+                        if (toggleVote.isPending) return;
+                        toggleVote.mutate({ ideaId: idea.id, voted: idea.voted }, { onError: (e) => toast.error(friendlyError(e)) });
+                      }}
                       accessibilityRole="button"
                       accessibilityLabel={`${idea.voteCount} vote${idea.voteCount > 1 ? "s" : ""}. ${idea.voted ? "Retirer mon vote" : "Voter pour cette idée"}`}
                       accessibilityState={{ selected: idea.voted }}

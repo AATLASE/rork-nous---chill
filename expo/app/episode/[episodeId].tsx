@@ -68,7 +68,7 @@ import {
   useToggleLike,
 } from "@/hooks/useEpisodes";
 import { useMembers } from "@/hooks/useMembers";
-import { useEpisodeReviewAuthors, useEpisodeReviews, useMyReview } from "@/hooks/useReviews";
+import { useEpisodeReviewAuthors, useEpisodeReviews, useMyReview, useRevealEpisodeNow } from "@/hooks/useReviews";
 import { useAddComment, useComments, useDeleteComment, useToggleReaction } from "@/hooks/useSocial";
 import { useSpace } from "@/hooks/useSpaces";
 import { useAuth } from "@/providers/auth";
@@ -281,6 +281,7 @@ export default function EpisodeDetailScreen() {
   const { data: members } = useMembers(spaceId);
   const { data: reviews } = useEpisodeReviews(episodeId);
   const { data: reviewAuthors } = useEpisodeReviewAuthors(episodeId);
+  const revealNow = useRevealEpisodeNow(episodeId, episode?.space_id ?? "");
   const { data: myReview } = useMyReview(episodeId);
   const { data: comments } = useComments(episodeId);
   const { data: likes } = useEpisodeLikes(episodeId);
@@ -539,7 +540,8 @@ export default function EpisodeDetailScreen() {
 
   const onSendComment = async () => {
     const body = draft.trim();
-    if (!body) return;
+    // Enter and the send button can both fire while the first send is on its way.
+    if (!body || addComment.isPending) return;
     try {
       await addComment.mutateAsync({
         body,
@@ -606,7 +608,11 @@ export default function EpisodeDetailScreen() {
 
           {/* Like / comment counts */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xl }}>
-            <PressableScale onPress={() => toggleLike.mutate(likes?.liked ?? false)} style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+            <PressableScale
+              onPress={() => {
+                if (toggleLike.isPending) return;
+                toggleLike.mutate(likes?.liked ?? false, { onError: (e) => toast.error(friendlyError(e)) });
+              }} style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
               <Heart size={22} color={likes?.liked ? colors.primary : colors.textMuted} fill={likes?.liked ? colors.primary : "transparent"} />
               <AppText style={{ fontWeight: "700", color: likes?.liked ? colors.primary : colors.textMuted }}>{likes?.count ?? 0}</AppText>
             </PressableScale>
@@ -743,6 +749,30 @@ export default function EpisodeDetailScreen() {
                         ? "Une review manque encore. La dernière publiée révèle toutes les autres."
                         : `${pendingCount} reviews manquent encore. La dernière publiée révèle toutes les autres.`}
                     </AppText>
+                    {pendingCount > 0 && reviewers.length - pendingCount > 0 ? (
+                      <AppText variant="caption">Les retardataires reçoivent deux rappels automatiques.</AppText>
+                    ) : null}
+                    {/* When someone will never write, the owner can open the episode
+                        anyway rather than leave everyone else's reviews sealed. */}
+                    {isOwner(space?.membership) && pendingCount > 0 && reviewers.length - pendingCount > 0 ? (
+                      <Button
+                        title="Révéler maintenant"
+                        variant="secondary"
+                        loading={revealNow.isPending}
+                        onPress={() =>
+                          confirmAction(
+                            "Révéler cet épisode ?",
+                            `Les reviews déjà écrites seront visibles par tout l'espace, même s'il en manque ${pendingCount}.`,
+                            "Révéler",
+                            () =>
+                              revealNow.mutate(undefined, {
+                                onSuccess: () => toast.success("Épisode révélé ✨"),
+                                onError: (e) => toast.error(friendlyError(e)),
+                              }),
+                          )
+                        }
+                      />
+                    ) : null}
                   </Card>
                 ) : null}
               </>
@@ -791,7 +821,10 @@ export default function EpisodeDetailScreen() {
                   people={people}
                   canReply={canComment}
                   canModerate={isOwner(space?.membership)}
-                  onReact={(commentId, emoji, active) => toggleReaction.mutate({ commentId, emoji, active })}
+                  onReact={(commentId, emoji, active) => {
+                    if (toggleReaction.isPending) return;
+                    toggleReaction.mutate({ commentId, emoji, active }, { onError: (e) => toast.error(friendlyError(e)) });
+                  }}
                   onDelete={confirmDeleteComment}
                   onReply={startReply}
                 />

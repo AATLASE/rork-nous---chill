@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ensureSpaceInviteCode } from "@/lib/invites";
 import { qk } from "@/lib/keys";
+import { removeStoredFiles } from "@/lib/media";
 import { supabase } from "@/lib/supabase";
 import type { MemberRole, Space, SpaceMember, SpaceWithMembership } from "@/lib/types";
 import { useAuth } from "@/providers/auth";
@@ -221,8 +222,26 @@ export function useDeleteSpace() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (spaceId: string): Promise<void> => {
-      const { error } = await supabase.from("spaces").delete().eq("id", spaceId);
+      // The files are listed before the rows disappear with the space.
+      const [{ data: media }, { data: episodes }, { data: space }] = await Promise.all([
+        supabase.from("episode_media").select("url").eq("space_id", spaceId),
+        supabase.from("episodes").select("cover_url").eq("space_id", spaceId),
+        supabase.from("spaces").select("cover_url").eq("id", spaceId).maybeSingle(),
+      ]);
+
+      // Under RLS a refused delete is a success with zero rows: check, or the
+      // app says "supprimé" and nothing happened.
+      const { data, error } = await supabase.from("spaces").delete().eq("id", spaceId).select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Le serveur a refusé la suppression. Seul le propriétaire peut supprimer l'espace.");
+      }
+
+      await removeStoredFiles([
+        ...(media ?? []).map((m) => m.url as string),
+        ...(episodes ?? []).map((e) => e.cover_url as string | null),
+        space?.cover_url as string | null,
+      ]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.spaces });

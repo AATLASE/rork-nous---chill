@@ -434,3 +434,29 @@ export async function uploadMediaAll(
 
   return results;
 }
+
+/** Storage path of a file served by its public URL, or null for anything else (data: URLs…). */
+function storagePathOf(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${MEDIA_BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at < 0) return null;
+  return decodeURIComponent(url.slice(at + marker.length).split("?")[0]);
+}
+
+/**
+ * Deletes the files behind these URLs, best-effort. Rows go with ON DELETE
+ * CASCADE, the files do not: without this, every deleted episode or space left
+ * its photos in the bucket for good. Files the storage rules do not let this
+ * user delete simply stay; nothing here can fail the deletion it follows.
+ */
+export async function removeStoredFiles(urls: (string | null | undefined)[]): Promise<void> {
+  const paths = [...new Set(urls.map(storagePathOf).filter((p): p is string => !!p))];
+  if (paths.length === 0) return;
+  try {
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove(paths);
+    if (error) console.log("[media] storage cleanup failed:", error.message);
+  } catch (e) {
+    console.log("[media] storage cleanup failed:", e);
+  }
+}

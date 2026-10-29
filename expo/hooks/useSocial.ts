@@ -121,10 +121,11 @@ export function useToggleReaction(episodeId: string) {
         const { error } = await supabase
           .from("comment_reactions")
           .insert({ comment_id: commentId, user_id: userId, emoji });
-        if (error) throw error;
+        // Already there (a double tap, or another device): that is the state we wanted.
+        if (error && error.code !== "23505") throw error;
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: qk.comments(episodeId) });
     },
   });
@@ -201,10 +202,11 @@ export function useToggleIdeaVote(spaceId: string) {
         if (error) throw error;
       } else {
         const { error } = await supabase.from("idea_votes").insert({ idea_id: ideaId, user_id: userId });
-        if (error) throw error;
+        // Already there (a double tap, or another device): that is the state we wanted.
+        if (error && error.code !== "23505") throw error;
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: qk.ideas(spaceId) });
     },
   });

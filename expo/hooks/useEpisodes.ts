@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/keys";
-import { PickedAsset, uploadMedia, uploadMediaAll } from "@/lib/media";
+import { PickedAsset, removeStoredFiles, uploadMedia } from "@/lib/media";
 import { supabase } from "@/lib/supabase";
+import { enqueueEpisodeMedia } from "@/lib/uploadQueue";
 import type { Episode, EpisodeMedia } from "@/lib/types";
 import { useAuth } from "@/providers/auth";
 
@@ -73,24 +74,16 @@ export function useCreateEpisode() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateEpisodeInput): Promise<CreatedEpisode> => {
-      // Episodes carry a sequential, per-space number (#1, #2, …) on a NOT NULL
-      // column, so compute the next one from the current highest in this space.
-      const { data: last } = await supabase
-        .from("episodes")
-        .select("number")
-        .eq("space_id", input.spaceId)
-        .order("number", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const nextNumber = ((last?.number as number | null | undefined) ?? 0) + 1;
-
       // The episode is created first so uploads can use its id in candidate
       // storage paths.
       const { data, error } = await supabase
         .from("episodes")
         .insert({
           space_id: input.spaceId,
-          number: nextNumber,
+          // Placeholder for the NOT NULL column: the database assigns the real
+          // per-space number (trigger episodes_assign_number), so two episodes
+          // created at the same moment no longer collide.
+          number: 0,
           title: input.title.trim(),
           date: input.date,
           // "place" is NOT NULL in the DB even though the UI marks it optional,
@@ -132,31 +125,14 @@ export function useCreateEpisode() {
         }
       }
 
-      const outcomes = await uploadMediaAll(
-        { kind: "episodes", spaceId: input.spaceId, userId, episodeId: episode.id },
-        input.assets,
-      );
-      const uploaded: { url: string; type: string }[] = [];
+      // The album goes through the upload queue like any other photo: the
+      // screen can close, the app can be left, and nothing is lost on the way.
       let failedMedia = 0;
-      for (const outcome of outcomes) {
-        if (outcome.url) uploaded.push({ url: outcome.url, type: outcome.asset.type });
-        else failedMedia += 1;
-      }
-
-      if (uploaded.length > 0) {
-        const rows = uploaded.map((u) => ({
-          episode_id: episode.id,
-          space_id: input.spaceId,
-          url: u.url,
-          filename: u.url.split("/").pop() || "media",
-          type: u.type,
-          uploaded_by: userId,
-        }));
-        const { error: mediaError } = await supabase.from("episode_media").insert(rows);
-        if (mediaError) {
-          console.log("[episodes] media rows insert failed:", mediaError);
-          failedMedia += uploaded.length;
-        }
+      try {
+        await enqueueEpisodeMedia(episode.id, input.spaceId, input.assets);
+      } catch (e) {
+        console.log("[episodes] could not queue the album:", e);
+        failedMedia = input.assets.length;
       }
 
       return { episode, failedMedia, coverFailed };
@@ -190,11 +166,9 @@ export function useSetEpisodeCover(episodeId: string, spaceId: string) {
 }
 
 /*
- * Adding media to an existing episode used to live here, as a mutation the
- * screen awaited. It moved to lib/uploadQueue: a photo must not depend on its
- * screen staying open, and a mutation cannot outlive the component that started
- * it. Episode *creation* below still uploads inline — the episode has to exist
- * before anyone can be sent to it.
+ * Adding media to an episode lives in lib/uploadQueue: a photo must not depend
+ * on its screen staying open, and a mutation cannot outlive the component that
+ * started it. Episode creation hands its album to the same queue.
  */
 
 /**
@@ -226,19 +200,22 @@ export function useDeleteEpisode(spaceId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (episodeId: string): Promise<void> => {
-      // Children are cleared first so the delete works whether or not the
-      // foreign keys were declared ON DELETE CASCADE. Failures are ignored:
-      // when the cascade does exist, these calls are simply redundant.
-      for (const table of ["episode_media", "episode_comments", "episode_likes", "reviews"]) {
-        const { error } = await supabase.from(table).delete().eq("episode_id", episodeId);
-        if (error) console.log(`[episodes] could not clear ${table}:`, error.message);
-      }
+      // The files are listed before the rows disappear with them.
+      const [{ data: media }, { data: ep }] = await Promise.all([
+        supabase.from("episode_media").select("url").eq("episode_id", episodeId),
+        supabase.from("episodes").select("cover_url").eq("id", episodeId).maybeSingle(),
+      ]);
 
+      // One delete: comments, likes, reviews and media rows follow by ON DELETE
+      // CASCADE, in the same transaction. Clearing them one by one first, as
+      // before, emptied the episode even when deleting it was then refused.
       const { data, error } = await supabase.from("episodes").delete().eq("id", episodeId).select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error("Le serveur a refusé la suppression. Seuls le propriétaire de l'espace et l'auteur de l'épisode peuvent le supprimer.");
       }
+
+      await removeStoredFiles([...(media ?? []).map((m) => m.url as string), ep?.cover_url as string | null]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.episodes(spaceId) });
@@ -275,10 +252,12 @@ export function useToggleLike(episodeId: string) {
         if (error) throw error;
       } else {
         const { error } = await supabase.from("episode_likes").insert({ episode_id: episodeId, user_id: userId });
-        if (error) throw error;
+        // Already there (a double tap, or another device): that is the state we wanted.
+        if (error && error.code !== "23505") throw error;
       }
     },
-    onSuccess: () => {
+    // Settled, not success: after a failure the heart must show the real state again.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: qk.likes(episodeId) });
     },
   });
