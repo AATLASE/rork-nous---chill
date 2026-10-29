@@ -11,7 +11,7 @@ import { AppText } from "@/components/ui/Text";
 import { colors, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { clearPendingInvite } from "@/lib/pendingInvite";
-import { useJoinSpace } from "@/hooks/useSpaces";
+import { joinMessage, useJoinSpace } from "@/hooks/useSpaces";
 import { useActiveSpace } from "@/providers/activeSpace";
 import { useToast } from "@/providers/toast";
 
@@ -39,11 +39,7 @@ export default function JoinScreen() {
       // Make the space we just joined the one the tabs show.
       select(result.spaceId);
       // Sets expectations before the space dashboard explains the role in full.
-      toast.success(
-        result.alreadyMember
-          ? "Tu fais déjà partie de cet espace."
-          : "Bienvenue ! Tu es observateur pour l'instant."
-      );
+      toast.success(joinMessage(result));
       router.replace("/");
     } catch (error) {
       toast.error(friendlyError(error));

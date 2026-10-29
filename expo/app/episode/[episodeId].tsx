@@ -136,6 +136,7 @@ function CommentItem({
   meId,
   people,
   canReply,
+  canModerate,
   isReply = false,
   onReact,
   onDelete,
@@ -147,6 +148,8 @@ function CommentItem({
   meId: string | null;
   people: MentionCandidate[];
   canReply: boolean;
+  /** The space owner can remove anyone's comment (the database already allows it). */
+  canModerate: boolean;
   isReply?: boolean;
   onReact: (commentId: string, emoji: string, active: boolean) => void;
   onDelete: (commentId: string) => void;
@@ -164,7 +167,7 @@ function CommentItem({
 
   const [showPicker, setShowPicker] = useState<boolean>(false);
   const authorName = comment.profile?.name ?? "Membre";
-  const canDelete = comment.author_id === meId;
+  const canDelete = comment.author_id === meId || canModerate;
   const replies = comment.replies ?? [];
 
   return (
@@ -213,7 +216,7 @@ function CommentItem({
               </TouchableOpacity>
             ) : null}
             {canDelete ? (
-              <TouchableOpacity onPress={() => onDelete(comment.id)} hitSlop={8} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+              <TouchableOpacity onPress={() => onDelete(comment.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Supprimer le commentaire de ${authorName}`} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
                 <Trash2 size={14} color={colors.textFaint} />
               </TouchableOpacity>
             ) : null}
@@ -252,6 +255,7 @@ function CommentItem({
               meId={meId}
               people={people}
               canReply={canReply}
+              canModerate={canModerate}
               isReply
               onReact={onReact}
               onDelete={onDelete}
@@ -508,7 +512,19 @@ export default function EpisodeDetailScreen() {
    * comment still goes in one tap.
    */
   const confirmDeleteComment = (commentId: string) => {
+    const all = (comments ?? []).flatMap((c) => [c, ...(c.replies ?? [])]);
+    const target = all.find((c) => c.id === commentId);
     const replyCount = (comments ?? []).find((c) => c.id === commentId)?.replies?.length ?? 0;
+    // The owner removing somebody else's words always gets asked first.
+    if (target && target.author_id !== userId) {
+      confirmAction(
+        "Supprimer ce commentaire ?",
+        `Le commentaire de ${target.profile?.name ?? "ce membre"}${replyCount > 0 ? ` et ses ${replyCount} réponse${replyCount > 1 ? "s" : ""}` : ""} sera supprimé pour tout le monde.`,
+        "Supprimer",
+        () => deleteComment.mutate(commentId),
+      );
+      return;
+    }
     if (replyCount === 0) {
       deleteComment.mutate(commentId);
       return;
@@ -774,6 +790,7 @@ export default function EpisodeDetailScreen() {
                   meId={userId}
                   people={people}
                   canReply={canComment}
+                  canModerate={isOwner(space?.membership)}
                   onReact={(commentId, emoji, active) => toggleReaction.mutate({ commentId, emoji, active })}
                   onDelete={confirmDeleteComment}
                   onReply={startReply}

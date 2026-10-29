@@ -43,7 +43,7 @@ const SLIDES: Slide[] = [
     key: "invite",
     overline: "Étape 2 sur 4",
     title: "Invite tes proches",
-    body: "Un seul code par espace : partage-le et retrouvez-vous au même endroit. Chaque personne qui arrive commence en observateur — elle voit tout, et le propriétaire l'autorise ensuite à participer.",
+    body: "Deux liens d'invitation : participant pour ceux qui créent des épisodes et écrivent leur review, observateur pour ceux qui suivent l'aventure. Tu les retrouves dans Profil, rubrique Membres.",
     icon: "invite",
   },
   {

@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Clapperboard, LayoutGrid, Lightbulb, Lock, Plus, Rows3, Settings, Sparkles, Ticket, Users } from "lucide-react-native";
+import { Clapperboard, LayoutGrid, Lightbulb, Lock, Plus, Rows3, Settings, Sparkles, Users } from "lucide-react-native";
 import React, { useState } from "react";
 import { Dimensions, RefreshControl, View } from "react-native";
 import { EpisodePoster, EpisodeRow } from "@/components/EpisodeCard";
+import { NoSpaceState } from "@/components/NoSpaceState";
 import { SpaceSwitcher } from "@/components/SpaceSwitcher";
 import { Badge } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -25,13 +26,15 @@ type ViewMode = "grid" | "timeline";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 2 - spacing.md) / 2;
 
-function StatTile({ label, value, icon, onPress, hint }: { label: string; value: number; icon: React.ReactNode; onPress: () => void; hint: string }) {
+function StatTile({ label, value, icon, onPress, hint }: { label: string; value: number; icon: React.ReactNode; onPress?: () => void; hint?: string }) {
   return (
     <PressableScale
       onPress={onPress}
-      scaleTo={0.95}
-      accessibilityRole="button"
-      accessibilityLabel={`${value} ${label}. ${hint}`}
+      disabled={!onPress}
+      scaleTo={onPress ? 0.95 : 1}
+      // Only a tile that goes somewhere is announced as a button.
+      accessibilityRole={onPress ? "button" : "text"}
+      accessibilityLabel={hint ? `${value} ${label}. ${hint}` : `${value} ${label}`}
       style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: "center", gap: 4 }}
     >
       {icon}
@@ -88,17 +91,11 @@ export default function MomentsScreen() {
     return (
       <Screen scroll contentStyle={{ paddingHorizontal: spacing.lg }}>
         <SpaceSwitcher />
-        {/* Both routes in are equally likely for a newcomer, so they read as one
-            pair of choices rather than a CTA with a stray button under it. */}
-        <EmptyState
+        <NoSpaceState
           icon={<Sparkles size={30} color={colors.primary} />}
           title="Aucun espace pour l'instant"
           subtitle="Crée ta première aventure partagée, ou rejoins celle d'un proche avec un code d'invitation."
         />
-        <View style={{ gap: spacing.md, marginTop: -spacing.xl }}>
-          <Button title="Créer un espace" icon={<Plus size={18} color={colors.primaryFg} />} onPress={() => router.push("/create-space")} />
-          <Button title="J'ai un code" variant="secondary" icon={<Ticket size={18} color={colors.text} />} onPress={() => router.push("/join")} />
-        </View>
       </Screen>
     );
   }
@@ -194,7 +191,7 @@ export default function MomentsScreen() {
       {/* Stats */}
       <FadeIn delay={110}>
         <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.xl }}>
-          <StatTile label="Épisodes" value={episodes?.length ?? 0} icon={<Clapperboard size={18} color={colors.primary} />} hint="Voir la liste ci-dessous" onPress={() => {}} />
+          <StatTile label="Épisodes" value={episodes?.length ?? 0} icon={<Clapperboard size={18} color={colors.primary} />} />
           <StatTile label="Membres" value={members?.length ?? 0} icon={<Users size={18} color={colors.accent} />} hint="Gérer les membres" onPress={() => router.push({ pathname: "/space-members/[spaceId]", params: { spaceId } })} />
           <StatTile label="Idées" value={ideas?.length ?? 0} icon={<Lightbulb size={18} color="#5B8DEF" />} hint="Ouvrir les idées" onPress={() => router.push("/ideas")} />
         </View>

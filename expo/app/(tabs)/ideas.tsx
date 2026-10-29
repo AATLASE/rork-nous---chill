@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { Flame, Lightbulb, Plus, Trash2, X } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { RefreshControl, TouchableOpacity, View } from "react-native";
@@ -6,6 +5,7 @@ import { SpaceSwitcher } from "@/components/SpaceSwitcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, Screen, SectionHeader } from "@/components/ui/Card";
+import { NoSpaceState } from "@/components/NoSpaceState";
 import { EmptyState, Loader } from "@/components/ui/Feedback";
 import { FadeIn, PressableScale } from "@/components/ui/motion";
 import { Field, Input } from "@/components/ui/Input";
@@ -20,7 +20,6 @@ import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
 
 export default function IdeasScreen() {
-  const router = useRouter();
   const toast = useToast();
   const { userId } = useAuth();
   const { space, isLoading: spaceLoading, hasNoSpace } = useActiveSpace();
@@ -77,12 +76,10 @@ export default function IdeasScreen() {
     return (
       <Screen scroll contentStyle={{ paddingHorizontal: spacing.lg }}>
         <SpaceSwitcher />
-        <EmptyState
+        <NoSpaceState
           icon={<Lightbulb size={30} color={colors.primary} />}
           title="Aucun espace"
           subtitle="Rejoins ou crée un espace pour proposer des idées de sorties."
-          actionLabel="Créer un espace"
-          onAction={() => router.push("/create-space")}
         />
       </Screen>
     );

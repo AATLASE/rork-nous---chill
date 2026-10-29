@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ensureSpaceInviteCode } from "@/lib/invites";
 import { qk } from "@/lib/keys";
 import { supabase } from "@/lib/supabase";
-import type { InviteCode, Space, SpaceMember, SpaceWithMembership } from "@/lib/types";
+import type { MemberRole, Space, SpaceMember, SpaceWithMembership } from "@/lib/types";
 import { useAuth } from "@/providers/auth";
 
 interface MembershipRow {
@@ -94,8 +94,6 @@ function makeSlug(name: string): string {
 
 export interface CreateSpaceResult {
   space: Space;
-  /** Null only if the code could not be generated — the space itself is fine. */
-  inviteCode: InviteCode | null;
 }
 
 export function useCreateSpace() {
@@ -130,20 +128,21 @@ export function useCreateSpace() {
         throw memberError;
       }
 
-      // Every space owns one permanent invite code from birth.
-      let inviteCode: InviteCode | null = null;
-      try {
-        inviteCode = await ensureSpaceInviteCode((space as Space).id, userId as string);
-      } catch (inviteError) {
-        // Nice-to-have: the members screen creates it later if this failed.
-        console.log("[create-space] invite code creation failed:", inviteError);
+      // Every space owns its two permanent invite codes from birth.
+      for (const role of ["member", "observer"] as const) {
+        try {
+          const invite = await ensureSpaceInviteCode((space as Space).id, userId as string, role);
+          queryClient.setQueryData(qk.invite((space as Space).id, role), invite);
+        } catch (inviteError) {
+          // Nice-to-have: the invite cards create it on first read if this failed.
+          console.log(`[create-space] ${role} invite code creation failed:`, inviteError);
+        }
       }
 
-      return { space: space as Space, inviteCode };
+      return { space: space as Space };
     },
-    onSuccess: ({ space, inviteCode }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.spaces });
-      if (inviteCode) queryClient.setQueryData(qk.invite(space.id), inviteCode);
     },
   });
 }
@@ -151,11 +150,25 @@ export function useCreateSpace() {
 export interface JoinResult {
   spaceId: string;
   alreadyMember: boolean;
+  /** The role the person now has in the space. */
+  role: MemberRole;
 }
 
 interface JoinRow {
   space_id: string;
   already_member: boolean;
+  role?: MemberRole | null;
+}
+
+/** The toast shown after joining, which says what the person can now do. */
+export function joinMessage(result: JoinResult): string {
+  if (result.role === "owner") return "Tu fais déjà partie de cet espace.";
+  if (result.role === "member") {
+    return result.alreadyMember
+      ? "Tu participes à cet espace : épisodes et reviews sont à toi."
+      : "Bienvenue ! Tu peux créer des épisodes et écrire tes reviews.";
+  }
+  return result.alreadyMember ? "Tu fais déjà partie de cet espace." : "Bienvenue ! Tu suis l'aventure en observateur.";
 }
 
 export function useJoinSpace() {
@@ -175,7 +188,7 @@ export function useJoinSpace() {
       const row = (Array.isArray(data) ? data[0] : data) as JoinRow | undefined;
       if (!row?.space_id) throw new Error("Code invalide. Vérifie-le auprès du propriétaire de l'espace.");
 
-      return { spaceId: row.space_id, alreadyMember: !!row.already_member };
+      return { spaceId: row.space_id, alreadyMember: !!row.already_member, role: row.role ?? "observer" };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.spaces });

@@ -3,7 +3,7 @@ import { ensureSpaceInviteCode, regenerateSpaceInviteCode } from "@/lib/invites"
 import { qk } from "@/lib/keys";
 import { getProfilesMap } from "@/lib/profiles";
 import { supabase } from "@/lib/supabase";
-import type { InviteCode, MemberRole, SpaceMember } from "@/lib/types";
+import type { InviteCode, InviteRole, MemberRole, SpaceMember } from "@/lib/types";
 import { useAuth } from "@/providers/auth";
 
 export function useMembers(spaceId: string) {
@@ -65,26 +65,26 @@ export function useRemoveMember() {
 }
 
 /**
- * The space's single invite code. Created on first read for spaces that predate
- * this model (or whose code was never generated).
+ * The space's invite code for one role. Created on first read for spaces that
+ * predate this model (or whose code was never generated).
  */
-export function useSpaceInviteCode(spaceId: string, enabled = true) {
+export function useSpaceInviteCode(spaceId: string, role: InviteRole, enabled = true) {
   const { userId } = useAuth();
   return useQuery({
-    queryKey: qk.invite(spaceId),
+    queryKey: qk.invite(spaceId, role),
     enabled: !!spaceId && !!userId && enabled,
-    queryFn: (): Promise<InviteCode> => ensureSpaceInviteCode(spaceId, userId as string),
+    queryFn: (): Promise<InviteCode> => ensureSpaceInviteCode(spaceId, userId as string, role),
   });
 }
 
-/** Rolls the space code — the previous one stops working immediately. */
-export function useRegenerateInviteCode(spaceId: string) {
+/** Rolls one of the space codes — the previous one stops working immediately. */
+export function useRegenerateInviteCode(spaceId: string, role: InviteRole) {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (): Promise<InviteCode> => regenerateSpaceInviteCode(spaceId, userId as string),
+    mutationFn: (): Promise<InviteCode> => regenerateSpaceInviteCode(spaceId, userId as string, role),
     onSuccess: (invite) => {
-      queryClient.setQueryData(qk.invite(spaceId), invite);
+      queryClient.setQueryData(qk.invite(spaceId, role), invite);
     },
   });
 }

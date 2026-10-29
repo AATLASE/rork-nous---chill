@@ -7,7 +7,8 @@ import { SpaceSwitcher } from "@/components/SpaceSwitcher";
 import { InlineVideo } from "@/components/VideoSurface";
 import { Button } from "@/components/ui/Button";
 import { Card, Screen, SectionHeader } from "@/components/ui/Card";
-import { EmptyState, Loader } from "@/components/ui/Feedback";
+import { NoSpaceState } from "@/components/NoSpaceState";
+import { Loader } from "@/components/ui/Feedback";
 import { FadeIn, Pulse } from "@/components/ui/motion";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, spacing } from "@/constants/theme";
@@ -75,12 +76,10 @@ export default function RecapScreen() {
     return (
       <Screen scroll contentStyle={{ paddingHorizontal: spacing.lg }}>
         <SpaceSwitcher />
-        <EmptyState
+        <NoSpaceState
           icon={<Sparkles size={30} color={colors.primary} />}
           title="Aucun espace"
           subtitle="Le bilan de saison apparaîtra ici une fois que tu feras partie d'un espace."
-          actionLabel="Créer un espace"
-          onAction={() => router.push("/create-space")}
         />
       </Screen>
     );
@@ -190,9 +189,14 @@ export default function RecapScreen() {
                 <AppText variant="body" style={{ lineHeight: 23 }}>{summary}</AppText>
               </Card>
             ) : !synthese?.video_url ? (
+              // Nothing produces the summary or the video yet: say so, instead of
+              // promising them "sous peu".
               <Card style={{ alignItems: "center", gap: 6 }}>
                 <Film size={22} color={colors.textMuted} />
-                <AppText variant="bodyMuted" center>La synthèse et la vidéo souvenir seront générées sous peu.</AppText>
+                <AppText variant="overline">Bientôt disponible</AppText>
+                <AppText variant="bodyMuted" center>
+                  La synthèse écrite et la vidéo souvenir de votre saison arrivent dans une prochaine version de Gather.
+                </AppText>
               </Card>
             ) : null}
 

@@ -39,8 +39,10 @@ insert into public.space_members (space_id, user_id, role, can_create_episodes) 
   ('aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'member', true),
   ('aaaaaaaa-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'observer', false);
 
-insert into public.invite_codes (code, space_id, role, created_by)
-values ('TESTCODE', 'aaaaaaaa-0000-0000-0000-000000000001', 'observer', '11111111-1111-1111-1111-111111111111')
+-- TESTCODE joins as an observer, TESTPART as a participant.
+insert into public.invite_codes (code, space_id, role, created_by) values
+  ('TESTCODE', 'aaaaaaaa-0000-0000-0000-000000000001', 'observer', '11111111-1111-1111-1111-111111111111'),
+  ('TESTPART', 'aaaaaaaa-0000-0000-0000-000000000001', 'member', '11111111-1111-1111-1111-111111111111')
 on conflict do nothing;
 
 insert into public.episodes (id, space_id, number, title, date, place, created_by) values

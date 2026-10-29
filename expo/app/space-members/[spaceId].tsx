@@ -1,10 +1,10 @@
-import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Copy, RefreshCw, Share2, Trash2 } from "lucide-react-native";
-import { ActivityIndicator, RefreshControl, Share, Switch, TouchableOpacity, View } from "react-native";
+import { ChevronLeft, Trash2 } from "lucide-react-native";
+import { RefreshControl, Switch, TouchableOpacity, View } from "react-native";
+import { InviteCodeCard } from "@/components/InviteCodeCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { RoleBadge } from "@/components/ui/Badge";
-import { Button, IconButton } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/Button";
 import { Card, Divider, Screen, SectionHeader } from "@/components/ui/Card";
 import { Loader } from "@/components/ui/Feedback";
 import { FadeIn } from "@/components/ui/motion";
@@ -13,8 +13,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { canParticipate, effectiveRole, isOwner, type SpaceMember } from "@/lib/types";
 import { confirmAction } from "@/lib/confirm";
-import { inviteLink } from "@/lib/pendingInvite";
-import { useMembers, useRegenerateInviteCode, useRemoveMember, useSpaceInviteCode, useUpdateMember } from "@/hooks/useMembers";
+import { useMembers, useRemoveMember, useUpdateMember } from "@/hooks/useMembers";
 import { useSpace } from "@/hooks/useSpaces";
 import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
@@ -102,7 +101,7 @@ export default function MembersScreen() {
                 <AppText variant="caption">
                   {participating
                     ? "Crée des épisodes et écrit ses impressions"
-                    : `Pour l'instant, ${member.profile?.name ?? "cette personne"} peut seulement voir et commenter`}
+                    : `Pour l'instant, ${member.profile?.name ?? "cette personne"} voit l'espace et commente les épisodes révélés`}
                 </AppText>
               </View>
               <Switch
@@ -136,7 +135,17 @@ export default function MembersScreen() {
         </View>
       </View>
 
-      {owner ? <SpaceInviteCard spaceId={id} spaceName={space?.name ?? "notre espace"} /> : null}
+      {owner ? (
+        <FadeIn>
+          <View style={{ marginBottom: spacing.xxl }}>
+            <SectionHeader title="Inviter" subtitle="Deux liens, selon ce que tu veux que la personne puisse faire" />
+            <View style={{ gap: spacing.md }}>
+              <InviteCodeCard spaceId={id} spaceName={space?.name ?? "notre espace"} role="member" />
+              <InviteCodeCard spaceId={id} spaceName={space?.name ?? "notre espace"} role="observer" />
+            </View>
+          </View>
+        </FadeIn>
+      ) : null}
 
       {isLoading ? (
         <Loader label="Chargement des membres…" />
@@ -179,86 +188,3 @@ export default function MembersScreen() {
     </Screen>
   );
 }
-
-/**
- * The space's single invite code: one address to share with everyone, rather
- * than one ticket per person. Regenerating it invalidates the previous code.
- */
-function SpaceInviteCard({ spaceId, spaceName }: { spaceId: string; spaceName: string }) {
-  const toast = useToast();
-  const { data: invite, isLoading, error } = useSpaceInviteCode(spaceId);
-  const regenerate = useRegenerateInviteCode(spaceId);
-
-  const code = invite?.code ?? null;
-  const arrivals = invite?.use_count ?? 0;
-  const link = code ? inviteLink(code) : null;
-
-  const copy = async () => {
-    if (!code) return;
-    await Clipboard.setStringAsync(code);
-    toast.success("Code copié");
-  };
-
-  const share = async () => {
-    if (!code) return;
-    await Share.share({ message: `Rejoins « ${spaceName} » sur Gather 🎬\nCode : ${code}${link ? `\n${link}` : ""}` });
-  };
-
-  const confirmRegenerate = () => {
-    confirmAction(
-      "Régénérer le code ?",
-      "L'ancien code cessera immédiatement de fonctionner. Les membres déjà présents gardent leur accès.",
-      "Régénérer",
-      () =>
-        regenerate.mutate(undefined, {
-          onSuccess: () => toast.success("Nouveau code généré"),
-          onError: (e) => toast.error(friendlyError(e)),
-        }),
-    );
-  };
-
-  return (
-    <FadeIn>
-      <View style={{ marginBottom: spacing.xxl }}>
-        <SectionHeader title="Code de l'espace" />
-        <Card elevated glow style={{ gap: spacing.md }}>
-          <View style={{ alignItems: "center", gap: spacing.sm }}>
-            {code ? (
-              <AppText style={{ fontSize: 34, fontWeight: "800", letterSpacing: 6, color: colors.text }}>{code}</AppText>
-            ) : (
-              <View style={{ height: 42, justifyContent: "center" }}>
-                {isLoading || regenerate.isPending ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <AppText variant="bodyMuted">Code indisponible</AppText>
-                )}
-              </View>
-            )}
-            <AppText variant="bodyMuted" center style={{ maxWidth: 300 }}>
-              Un seul code pour tout l&apos;espace. Chaque personne qui l&apos;utilise rejoint en observateur —
-              tu l&apos;autorises ensuite à participer ci-dessous.
-            </AppText>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: spacing.md }}>
-            <Button title="Copier" variant="secondary" icon={<Copy size={17} color={colors.text} />} onPress={copy} disabled={!code} style={{ flex: 1 }} />
-            <Button title="Partager" icon={<Share2 size={17} color={colors.primaryFg} />} onPress={share} disabled={!code} style={{ flex: 1 }} />
-          </View>
-
-          <Divider />
-
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <AppText variant="caption" style={{ flex: 1 }}>
-              {invite ? `${arrivals} arrivée${arrivals > 1 ? "s" : ""} via ce code` : error ? friendlyError(error) : " "}
-            </AppText>
-            <TouchableOpacity onPress={confirmRegenerate} disabled={regenerate.isPending} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <RefreshCw size={14} color={colors.textMuted} />
-              <AppText style={{ color: colors.textMuted, fontWeight: "700", fontSize: 13 }}>Régénérer</AppText>
-            </TouchableOpacity>
-          </View>
-        </Card>
-      </View>
-    </FadeIn>
-  );
-}
-

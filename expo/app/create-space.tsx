@@ -1,14 +1,14 @@
-import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Camera, Check, Copy, Film, Share2, Sparkles, X } from "lucide-react-native";
+import { Camera, Check, Film, Sparkles, X } from "lucide-react-native";
 import { useState } from "react";
-import { Share, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { CoverAdjustModal } from "@/components/CoverAdjustModal";
+import { InviteCodeCard } from "@/components/InviteCodeCard";
 import { IconButton } from "@/components/ui/Button";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Card, Screen } from "@/components/ui/Card";
+import { Screen } from "@/components/ui/Card";
 import { DateField } from "@/components/ui/DateField";
 import { Field, Input } from "@/components/ui/Input";
 import { FadeIn } from "@/components/ui/motion";
@@ -17,7 +17,6 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { PickedAsset, pickCoverImage, uploadMedia } from "@/lib/media";
 import type { Space } from "@/lib/types";
-import { inviteLink } from "@/lib/pendingInvite";
 import { useCreateSpace, useUpdateSpace } from "@/hooks/useSpaces";
 import { useActiveSpace } from "@/providers/activeSpace";
 import { useAuth } from "@/providers/auth";
@@ -47,7 +46,7 @@ export default function CreateSpaceScreen() {
   const [end, setEnd] = useState<Date>(addMonths(new Date(), 3));
   const [loading, setLoading] = useState<boolean>(false);
 
-  const [created, setCreated] = useState<{ space: Space; code: string | null } | null>(null);
+  const [created, setCreated] = useState<{ space: Space } | null>(null);
 
   const onPickCover = async () => {
     try {
@@ -75,7 +74,7 @@ export default function CreateSpaceScreen() {
     try {
       // The storage policy only accepts paths starting with a space uuid, so
       // the space is created first and the cover is uploaded under its id.
-      const { space, inviteCode } = await createSpace.mutateAsync({
+      const { space } = await createSpace.mutateAsync({
         name,
         description,
         coverUrl: null,
@@ -94,7 +93,7 @@ export default function CreateSpaceScreen() {
         }
       }
 
-      setCreated({ space, code: inviteCode?.code ?? null });
+      setCreated({ space });
     } catch (error) {
       toast.error(friendlyError(error));
     } finally {
@@ -103,19 +102,6 @@ export default function CreateSpaceScreen() {
   };
 
   if (created) {
-    const link = created.code ? inviteLink(created.code) : null;
-    const shareInvite = async () => {
-      if (!created.code) return;
-      await Share.share({
-        message: `Rejoins « ${created.space.name} » sur Gather 🎬\nCode : ${created.code}${link ? `\n${link}` : ""}`,
-      });
-    };
-    const copyCode = async () => {
-      if (!created.code) return;
-      await Clipboard.setStringAsync(created.code);
-      toast.success("Code copié !");
-    };
-
     return (
       <Screen scroll contentStyle={{ paddingHorizontal: spacing.lg }}>
         <View style={{ alignItems: "flex-end", paddingTop: spacing.sm }}>
@@ -128,24 +114,18 @@ export default function CreateSpaceScreen() {
             </View>
             <AppText variant="title" center>« {created.space.name} » est prêt</AppText>
             <AppText variant="bodyMuted" center style={{ maxWidth: 300 }}>
-              Voici le code de ton espace. Partage-le à ta bande : il est unique, permanent, et fonctionne
-              pour tout le monde.
+              Invite ta bande avec le lien participant, et ceux qui veulent juste suivre avec le lien
+              observateur. Tu les retrouveras dans Profil, rubrique Membres.
             </AppText>
           </View>
         </FadeIn>
 
-        {created.code ? (
-          <FadeIn delay={120}>
-            <Card elevated glow style={{ marginTop: spacing.xxl, alignItems: "center", gap: spacing.md }}>
-              <AppText variant="overline">Code de l&apos;espace</AppText>
-              <AppText style={{ fontSize: 38, fontWeight: "800", letterSpacing: 6, color: colors.text }}>{created.code}</AppText>
-              <View style={{ flexDirection: "row", gap: spacing.md, alignSelf: "stretch" }}>
-                <Button title="Copier" variant="secondary" icon={<Copy size={17} color={colors.text} />} onPress={copyCode} style={{ flex: 1 }} />
-                <Button title="Partager" icon={<Share2 size={17} color={colors.primaryFg} />} onPress={shareInvite} style={{ flex: 1 }} />
-              </View>
-            </Card>
-          </FadeIn>
-        ) : null}
+        <FadeIn delay={120}>
+          <View style={{ marginTop: spacing.xxl, gap: spacing.md }}>
+            <InviteCodeCard spaceId={created.space.id} spaceName={created.space.name} role="member" />
+            <InviteCodeCard spaceId={created.space.id} spaceName={created.space.name} role="observer" />
+          </View>
+        </FadeIn>
 
         <Button
           title="Ouvrir l'espace"

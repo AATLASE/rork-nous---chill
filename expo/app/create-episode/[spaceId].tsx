@@ -124,8 +124,8 @@ export default function CreateEpisodeScreen() {
           </View>
           <AppText variant="h2" center>Tu es observateur</AppText>
           <AppText variant="bodyMuted" center style={{ maxWidth: 300 }}>
-            Tu peux voir, aimer et commenter tout l&apos;espace. Pour ajouter des épisodes et écrire tes
-            impressions, le propriétaire doit t&apos;autoriser à participer depuis l&apos;onglet Membres.
+            Tu peux voir l&apos;espace, aimer les épisodes et les commenter une fois révélés. Pour ajouter
+            des épisodes et écrire ta review, demande au propriétaire le lien participant.
           </AppText>
           <Button title="J'ai compris" variant="secondary" onPress={() => router.back()} style={{ marginTop: spacing.sm }} />
         </View>
