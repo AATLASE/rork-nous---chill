@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
@@ -139,9 +140,10 @@ function getProjectId(): string | undefined {
 }
 
 /**
- * Requests permission (if needed) and returns the device's Expo push token, or
- * null when it cannot be obtained (simulator, denied permission, no EAS
- * project id). Never throws — push is always best-effort.
+ * Returns the device's Expo push token, or null when it cannot be obtained
+ * (simulator, permission not granted, no EAS project id). Never prompts: on iOS
+ * a refused prompt can never be shown again, so only `enablePush`, behind the
+ * user's own tap, asks. Never throws — push is always best-effort.
  */
 export async function getExpoPushToken(): Promise<string | null> {
   try {
@@ -152,12 +154,7 @@ export async function getExpoPushToken(): Promise<string | null> {
     if (!Notifications) return null;
 
     const settings = await Notifications.getPermissionsAsync();
-    let granted = settings.granted;
-    if (!granted && settings.canAskAgain) {
-      const requested = await Notifications.requestPermissionsAsync();
-      granted = requested.granted;
-    }
-    if (!granted) return null;
+    if (!settings.granted) return null;
 
     const projectId = getProjectId();
     const token = await Notifications.getExpoPushTokenAsync(
@@ -194,22 +191,39 @@ export async function pushPermission(): Promise<PushPermission> {
   }
 }
 
-async function storeSubscription(userId: string, sub: WebSubscription): Promise<void> {
-  const { data: existing } = await supabase
-    .from("push_subscriptions")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("endpoint", sub.endpoint)
-    .maybeSingle();
-  if (existing) return;
-
-  const { error } = await supabase.from("push_subscriptions").insert({
-    user_id: userId,
-    endpoint: sub.endpoint,
-    p256dh: sub.p256dh,
-    auth: sub.auth,
+/**
+ * Saves this device for the signed-in user. An endpoint is one device, so it
+ * belongs to whoever registered it last: a plain insert used to fail silently
+ * when another account had used the same browser, leaving the device on the
+ * previous owner's notifications. The RPC moves it instead.
+ */
+async function storeSubscription(sub: WebSubscription): Promise<void> {
+  const { error } = await supabase.rpc("register_push_subscription", {
+    p_endpoint: sub.endpoint,
+    p_p256dh: sub.p256dh,
+    p_auth: sub.auth,
   });
   if (error) throw error;
+}
+
+/* The "off" switch is a per-account choice on this device. Without it, the next
+ * launch re-registered a device whose permission was still granted, and the
+ * notifications came back on their own. */
+const optOutKey = (userId: string) => `gather.pushOptOut.v1.${userId}`;
+
+export async function pushOptedOut(userId: string): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(optOutKey(userId))) === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function setPushOptOut(userId: string, optedOut: boolean): Promise<void> {
+  try {
+    if (optedOut) await AsyncStorage.setItem(optOutKey(userId), "1");
+    else await AsyncStorage.removeItem(optOutKey(userId));
+  } catch {}
 }
 
 /**
@@ -221,16 +235,17 @@ async function storeSubscription(userId: string, sub: WebSubscription): Promise<
  */
 export async function registerPushToken(userId: string): Promise<void> {
   try {
+    if (await pushOptedOut(userId)) return;
     if (isWeb()) {
       if ((await pushPermission()) !== "granted") return;
       const sub = await getWebSubscription(true);
-      if (sub) await storeSubscription(userId, sub);
+      if (sub) await storeSubscription(sub);
       return;
     }
 
     const token = await getExpoPushToken();
     if (!token) return;
-    await storeSubscription(userId, { endpoint: token, p256dh: "", auth: "" });
+    await storeSubscription({ endpoint: token, p256dh: "", auth: "" });
   } catch (e) {
     // RLS, a schema mismatch or an offline browser must never crash the app.
     console.log("[push] enregistrement impossible:", e);
@@ -251,7 +266,8 @@ export async function enablePush(userId: string): Promise<PushPermission> {
 
     const sub = await getWebSubscription(true);
     if (!sub) return "denied";
-    await storeSubscription(userId, sub);
+    await setPushOptOut(userId, false);
+    await storeSubscription(sub);
     return "granted";
   }
 
@@ -259,6 +275,7 @@ export async function enablePush(userId: string): Promise<PushPermission> {
   if (!Notifications) return "denied";
   const settings = await Notifications.requestPermissionsAsync();
   if (!settings.granted) return settings.canAskAgain ? "undetermined" : "denied";
+  await setPushOptOut(userId, false);
   await registerPushToken(userId);
   return "granted";
 }
@@ -268,7 +285,10 @@ export async function enablePush(userId: string): Promise<PushPermission> {
  * releases the browser subscription too, so the endpoint stops existing rather
  * than lingering as a subscription nobody will ever deliver to.
  */
-export async function disablePush(userId: string): Promise<void> {
+export async function disablePush(userId: string, { remember = true }: { remember?: boolean } = {}): Promise<void> {
+  // Remembered when the user turns push off; not on sign-out, which says
+  // nothing about wanting notifications next time.
+  if (remember) await setPushOptOut(userId, true);
   try {
     if (isWeb()) {
       const registration = await serviceWorkerReady();
@@ -291,5 +311,5 @@ export async function disablePush(userId: string): Promise<void> {
 
 /** Removes this device's subscription (e.g. on sign-out). */
 export async function unregisterPushToken(userId: string): Promise<void> {
-  await disablePush(userId);
+  await disablePush(userId, { remember: false });
 }

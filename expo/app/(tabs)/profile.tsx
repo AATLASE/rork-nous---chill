@@ -13,7 +13,7 @@ import { AppText } from "@/components/ui/Text";
 import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { PickedAsset, pickAvatarImage, uploadMedia } from "@/lib/media";
-import { disablePush, enablePush, pushPermission, pushSupported } from "@/lib/push";
+import { disablePush, enablePush, pushOptedOut, pushPermission, pushSupported } from "@/lib/push";
 import { confirmAction } from "@/lib/confirm";
 import { useUpdateProfile } from "@/hooks/useProfile";
 import { useActiveSpace } from "@/providers/activeSpace";
@@ -59,20 +59,23 @@ function PushToggle() {
   const [enabled, setEnabled] = useState<boolean>(false);
 
   useEffect(() => {
-    pushPermission()
-      .then((p) => setEnabled(p === "granted"))
+    if (!userId) return;
+    // Permission alone is not the answer: the user may have switched push off
+    // here while the system permission stays granted.
+    Promise.all([pushPermission(), pushOptedOut(userId)])
+      .then(([p, optedOut]) => setEnabled(p === "granted" && !optedOut))
       .catch(() => {});
-  }, []);
+  }, [userId]);
 
   const onToggle = async (value: boolean) => {
     if (!userId) return;
 
-    // Turning it off is ours to do on the web — the browser lets a site drop its
-    // own subscription — while iOS and Android only take that back in settings.
+    // Off is remembered for this account on this device, so the next launch
+    // does not quietly subscribe again.
     if (!value) {
       await disablePush(userId);
       setEnabled(false);
-      toast.info(Platform.OS === "web" ? "Notifications désactivées" : "Pour les désactiver, passe par les réglages système.");
+      toast.info("Notifications désactivées");
       return;
     }
 

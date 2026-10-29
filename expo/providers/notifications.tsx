@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { colors } from "@/constants/theme";
 import { loadNotifications, registerPushToken } from "@/lib/push";
@@ -13,11 +13,41 @@ import { useAuth } from "@/providers/auth";
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { userId } = useAuth();
+  // The tap that opened the app is reported both by the listener (sometimes) and
+  // by getLastNotificationResponseAsync: route it only once.
+  const handledTap = useRef<string | null>(null);
+
+  const openFromNotification = (identifier: string, url: string | undefined) => {
+    if (handledTap.current === identifier) return;
+    handledTap.current = identifier;
+    try {
+      router.push((url || "/notifications") as never);
+    } catch {
+      // Ignore navigation errors from background taps.
+    }
+  };
 
   // Register this device's Expo push token whenever a user is signed in.
   useEffect(() => {
     if (!userId) return;
     registerPushToken(userId);
+  }, [userId]);
+
+  // Cold start: when a tap launched the app, the listener below was not there
+  // yet to hear it. Ask once the user is signed in, so the auth gate does not
+  // redirect away from the episode right after we open it.
+  useEffect(() => {
+    if (!userId || Platform.OS === "web") return;
+    const Notifications = loadNotifications();
+    if (!Notifications) return;
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (!response) return;
+        const data = response.notification.request.content.data as { url?: string } | undefined;
+        openFromNotification(response.notification.request.identifier, data?.url);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   useEffect(() => {
@@ -51,10 +81,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             vibrationPattern: [0, 120, 80, 120],
           });
         }
-        const settings = await Notifications.getPermissionsAsync();
-        if (!settings.granted && settings.canAskAgain) {
-          await Notifications.requestPermissionsAsync();
-        }
+        // No permission request here: asking at launch, before the user wants
+        // anything (and even on the login screen), burns the one prompt iOS
+        // allows. The switch in the profile asks.
       } catch {
         // Notifications are best-effort; ignore failures in restricted runtimes.
       }
@@ -62,18 +91,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { url?: string } | undefined;
-      try {
-        if (data?.url) {
-          router.push(data.url as never);
-        } else {
-          router.push("/notifications");
-        }
-      } catch {
-        // Ignore navigation errors from background taps.
-      }
+      openFromNotification(response.notification.request.identifier, data?.url);
     });
 
     return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   return <>{children}</>;
