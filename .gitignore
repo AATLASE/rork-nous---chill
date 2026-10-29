@@ -6,3 +6,4 @@ node_modules
 # Supabase CLI local state (project ref, pooler, account)
 supabase/.temp/
 supabase/.branches/
+.visiteurs/
