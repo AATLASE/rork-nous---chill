@@ -1,48 +1,31 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Clapperboard, LayoutGrid, Lightbulb, Lock, Plus, Rows3, Settings, Sparkles, Users } from "lucide-react-native";
-import React, { useState } from "react";
+import { ChevronRight, Clapperboard, LayoutGrid, Lock, PenLine, Plus, Rows3, Settings, Sparkles } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import { Dimensions, RefreshControl, View } from "react-native";
 import { EpisodePoster, EpisodeRow } from "@/components/EpisodeCard";
 import { NoSpaceState } from "@/components/NoSpaceState";
 import { SpaceSwitcher } from "@/components/SpaceSwitcher";
-import { Badge } from "@/components/ui/Badge";
+import { AvatarStack } from "@/components/ui/Avatar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, Screen, SectionHeader } from "@/components/ui/Card";
 import { EmptyState, Loader } from "@/components/ui/Feedback";
 import { FadeIn, PressableScale, Pulse } from "@/components/ui/motion";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, shadows, spacing } from "@/constants/theme";
-import { formatDate, getSeasonStatus } from "@/lib/format";
-import { canParticipate, isOwner } from "@/lib/types";
+import { formatDateShort, getSeasonStatus, type SeasonStatus } from "@/lib/format";
+import { canParticipate, isOwner, reviewersOf, reviewProgress, type ReviewProgress } from "@/lib/types";
 import { useEpisodes } from "@/hooks/useEpisodes";
 import { useMembers } from "@/hooks/useMembers";
-import { useIdeas } from "@/hooks/useSocial";
+import { useSpaceReviewAuthors } from "@/hooks/useReviews";
 import { useActiveSpace } from "@/providers/activeSpace";
+import { useAuth } from "@/providers/auth";
 
 type ViewMode = "grid" | "timeline";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 2 - spacing.md) / 2;
-
-function StatTile({ label, value, icon, onPress, hint }: { label: string; value: number; icon: React.ReactNode; onPress?: () => void; hint?: string }) {
-  return (
-    <PressableScale
-      onPress={onPress}
-      disabled={!onPress}
-      scaleTo={onPress ? 0.95 : 1}
-      // Only a tile that goes somewhere is announced as a button.
-      accessibilityRole={onPress ? "button" : "text"}
-      accessibilityLabel={hint ? `${value} ${label}. ${hint}` : `${value} ${label}`}
-      style={{ flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: "center", gap: 4 }}
-    >
-      {icon}
-      <AppText style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>{value}</AppText>
-      <AppText variant="caption">{label}</AppText>
-    </PressableScale>
-  );
-}
 
 function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
   return (
@@ -69,15 +52,81 @@ function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
   );
 }
 
+/** "Saison en cours · J-12", or whatever the season is doing instead. */
+function seasonLine(status: SeasonStatus): string {
+  switch (status.state) {
+    case "unlocked":
+      return "Saison débloquée";
+    case "ended":
+      return "Saison terminée";
+    case "upcoming":
+      return status.label;
+    default:
+      return status.daysLeft !== null ? `Saison en cours · J-${status.daysLeft}` : "Saison en cours";
+  }
+}
+
+/**
+ * The reviews waiting for you, oldest first: one line at the top of the home
+ * screen, because that is what makes an episode reveal for everyone.
+ */
+function ReviewWaitingBanner({ title, others, onPress }: { title: string; others: number; onPress: () => void }) {
+  return (
+    <FadeIn>
+      <PressableScale
+        onPress={onPress}
+        scaleTo={0.98}
+        accessibilityRole="button"
+        accessibilityLabel={`« ${title} » attend ta review. Écrire`}
+        style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primary, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
+      >
+        <PenLine size={18} color={colors.primary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText numberOfLines={2} style={{ fontWeight: "700", fontSize: 14.5, color: colors.text }}>
+            « {title} » attend ta review
+          </AppText>
+          {others > 0 ? (
+            <AppText variant="caption">
+              et {others} autre{others > 1 ? "s" : ""} épisode{others > 1 ? "s" : ""}
+            </AppText>
+          ) : null}
+        </View>
+        <AppText style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>Écrire ›</AppText>
+      </PressableScale>
+    </FadeIn>
+  );
+}
+
 export default function MomentsScreen() {
   const router = useRouter();
+  const { userId } = useAuth();
   const { space, isLoading, hasNoSpace, refetch, isRefetching } = useActiveSpace();
   const spaceId = space?.id ?? "";
 
   const { data: episodes, isLoading: episodesLoading } = useEpisodes(spaceId);
   const { data: members } = useMembers(spaceId);
-  const { data: ideas } = useIdeas(spaceId);
+  const { data: reviewAuthors } = useSpaceReviewAuthors(spaceId);
   const [mode, setMode] = useState<ViewMode>("grid");
+
+  const seasonUnlocked = !!space?.season_unlocked;
+  // Nothing until the authors are known: every card would say "À toi" for a beat.
+  const progressById = useMemo(() => {
+    if (!reviewAuthors || !episodes) return undefined;
+    const reviewers = reviewersOf(members);
+    return new Map<string, ReviewProgress>(
+      episodes.map((ep) => [ep.id, reviewProgress(ep, reviewAuthors.get(ep.id), reviewers, userId, seasonUnlocked)])
+    );
+  }, [reviewAuthors, episodes, members, userId, seasonUnlocked]);
+
+  // Episodes come newest first, so the oldest one waiting is the last.
+  const waiting = useMemo(
+    () =>
+      (episodes ?? []).filter((ep) => {
+        const p = progressById?.get(ep.id);
+        return !!p && p.myTurn && !p.revealed;
+      }),
+    [episodes, progressById]
+  );
 
   if (isLoading) {
     return (
@@ -103,9 +152,11 @@ export default function MomentsScreen() {
   const status = getSeasonStatus(space);
   const owner = isOwner(space.membership);
   const participate = canParticipate(space.membership);
+  const oldestWaiting = waiting[waiting.length - 1];
 
   const openEpisode = (episodeId: string) => router.push({ pathname: "/episode/[episodeId]", params: { episodeId } });
   const create = () => router.push({ pathname: "/create-episode/[spaceId]", params: { spaceId } });
+  const openMembers = () => router.push({ pathname: "/space-members/[spaceId]", params: { spaceId } });
 
   return (
     <Screen
@@ -115,93 +166,97 @@ export default function MomentsScreen() {
     >
       <SpaceSwitcher />
 
-      {/* Poster hero — the cinematic anchor, now sitting under a permanent header
-          instead of being a full-bleed image the tab bar had to fight with. */}
-      <FadeIn>
-        <View style={[{ height: 190, borderRadius: radius.xl, overflow: "hidden", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, shadows.poster]}>
-          {space.cover_url ? (
-            <Image source={{ uri: space.cover_url }} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" transition={250} />
-          ) : (
-            <LinearGradient colors={[colors.heroFrom, colors.heroTo]} style={{ position: "absolute", width: "100%", height: "100%" }} />
-          )}
-          <LinearGradient colors={["rgba(8,8,9,0.05)", "rgba(8,8,9,0.45)", "rgba(8,8,9,0.92)"]} locations={[0, 0.5, 1]} style={{ position: "absolute", width: "100%", height: "100%" }} />
-
-          <View style={{ position: "absolute", top: spacing.md, left: spacing.md, right: spacing.md, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-            {status.state === "unlocked" ? (
-              <Badge label="Saison débloquée" tone="gold" icon={<Sparkles size={12} color={colors.accent} />} />
-            ) : (
-              <Badge label={status.label} tone={status.state === "ending" || status.state === "ended" ? "primary" : "muted"} />
-            )}
-            {owner ? (
-              <IconButton
-                icon={<Settings size={18} color="#fff" />}
-                onPress={() => router.push({ pathname: "/space-settings/[spaceId]", params: { spaceId } })}
-                size={38}
-                style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-                accessibilityLabel="Réglages de l'espace"
-              />
-            ) : null}
-          </View>
-
-          <View style={{ position: "absolute", bottom: spacing.md, left: spacing.md, right: spacing.md, gap: 3 }}>
-            <AppText variant="h2" numberOfLines={1} style={{ color: "#fff" }}>{space.name}</AppText>
-            {space.description ? (
-              <AppText numberOfLines={1} style={{ color: "rgba(255,255,255,0.75)", fontSize: 13.5, fontWeight: "500" }}>{space.description}</AppText>
-            ) : null}
-          </View>
-        </View>
-      </FadeIn>
-
-      {/* Season */}
-      <FadeIn delay={60}>
-        <Card elevated style={{ gap: spacing.md, marginTop: spacing.xl }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <AppText variant="overline">Saison</AppText>
-            <AppText variant="caption">
-              {space.season_start ? formatDate(space.season_start) : "—"} → {space.season_end ? formatDate(space.season_end) : "—"}
-            </AppText>
-          </View>
-
-          <View style={{ height: 7, backgroundColor: colors.surface, borderRadius: radius.pill, overflow: "hidden" }}>
-            <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${Math.max(4, status.progress * 100)}%`, height: "100%" }} />
-          </View>
-
-          {status.state === "unlocked" ? (
-            <Button title="Voir le bilan de la saison" variant="gold" icon={<Sparkles size={18} color="#1A1607" />} onPress={() => router.push("/recap")} />
-          ) : status.state === "ended" ? (
-            owner ? (
-              <Pulse>
-                <Button title="Débloquer la saison" icon={<Lock size={18} color={colors.primaryFg} />} onPress={() => router.push("/recap")} fullWidth />
-              </Pulse>
-            ) : (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", paddingVertical: 6 }}>
-                <Lock size={15} color={colors.textMuted} />
-                <AppText variant="bodyMuted">En attente du déverrouillage par le propriétaire</AppText>
-              </View>
-            )
-          ) : (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <AppText variant="bodyMuted">{status.daysLeft !== null ? `${status.daysLeft} j avant la fin de la saison` : "Saison en cours"}</AppText>
-              <Button title="Aperçu du bilan" variant="ghost" size="sm" onPress={() => router.push("/recap")} />
+      <View style={{ gap: spacing.md }}>
+        {/* The cover only when there is a real photo: an empty gradient pushed
+            the episodes below the fold, and the name is already in the header. */}
+        {space.cover_url ? (
+          <FadeIn>
+            <View style={[{ height: 150, borderRadius: radius.xl, overflow: "hidden", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, shadows.poster]}>
+              <Image source={{ uri: space.cover_url }} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" transition={250} />
+              {space.description ? (
+                <>
+                  <LinearGradient colors={["transparent", "rgba(8,8,9,0.85)"]} locations={[0.45, 1]} style={{ position: "absolute", width: "100%", height: "100%" }} />
+                  <AppText numberOfLines={1} style={{ position: "absolute", bottom: spacing.md, left: spacing.md, right: spacing.md, color: "rgba(255,255,255,0.85)", fontSize: 13.5, fontWeight: "500" }}>
+                    {space.description}
+                  </AppText>
+                </>
+              ) : null}
             </View>
-          )}
-        </Card>
-      </FadeIn>
+          </FadeIn>
+        ) : null}
 
-      {/* Stats */}
-      <FadeIn delay={110}>
-        <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.xl }}>
-          <StatTile label="Épisodes" value={episodes?.length ?? 0} icon={<Clapperboard size={18} color={colors.primary} />} />
-          <StatTile label="Membres" value={members?.length ?? 0} icon={<Users size={18} color={colors.accent} />} hint="Gérer les membres" onPress={() => router.push({ pathname: "/space-members/[spaceId]", params: { spaceId } })} />
-          <StatTile label="Idées" value={ideas?.length ?? 0} icon={<Lightbulb size={18} color="#5B8DEF" />} hint="Ouvrir les idées" onPress={() => router.push("/ideas")} />
-        </View>
-      </FadeIn>
+        {/* Season, group and settings in one compact band. */}
+        <FadeIn delay={40}>
+          <Card style={{ gap: spacing.md, paddingVertical: spacing.md }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText style={{ fontWeight: "700", fontSize: 14.5, color: colors.text }}>{seasonLine(status)}</AppText>
+                {space.season_start && space.season_end ? (
+                  <AppText variant="caption">
+                    {formatDateShort(space.season_start)} → {formatDateShort(space.season_end)}
+                  </AppText>
+                ) : null}
+              </View>
+              {owner ? (
+                <IconButton
+                  icon={<Settings size={17} color={colors.text} />}
+                  onPress={() => router.push({ pathname: "/space-settings/[spaceId]", params: { spaceId } })}
+                  size={36}
+                  accessibilityLabel="Réglages de l'espace"
+                />
+              ) : null}
+            </View>
+
+            <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: radius.pill, overflow: "hidden" }}>
+              <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${Math.max(4, status.progress * 100)}%`, height: "100%" }} />
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+              <PressableScale
+                onPress={openMembers}
+                scaleTo={0.96}
+                accessibilityRole="button"
+                accessibilityLabel={`${members?.length ?? 0} membres. Gérer les membres`}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <AvatarStack profiles={(members ?? []).map((m) => m.profile)} size={28} />
+                <ChevronRight size={16} color={colors.textFaint} />
+              </PressableScale>
+              {status.state !== "unlocked" && status.state !== "ended" ? (
+                <Button title="Aperçu du bilan ›" variant="ghost" size="sm" onPress={() => router.push("/recap")} />
+              ) : null}
+            </View>
+
+            {status.state === "unlocked" ? (
+              <Button title="Voir le bilan de la saison" variant="gold" icon={<Sparkles size={18} color="#1A1607" />} onPress={() => router.push("/recap")} />
+            ) : status.state === "ended" ? (
+              owner ? (
+                <Pulse>
+                  <Button title="Débloquer la saison" icon={<Lock size={18} color={colors.primaryFg} />} onPress={() => router.push("/recap")} fullWidth />
+                </Pulse>
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", paddingVertical: 4 }}>
+                  <Lock size={15} color={colors.textMuted} />
+                  <AppText variant="bodyMuted">En attente du déverrouillage par le propriétaire</AppText>
+                </View>
+              )
+            ) : null}
+          </Card>
+        </FadeIn>
+
+        {oldestWaiting ? (
+          <ReviewWaitingBanner
+            title={oldestWaiting.title}
+            others={waiting.length - 1}
+            onPress={() => router.push({ pathname: "/review/[episodeId]", params: { episodeId: oldestWaiting.id } })}
+          />
+        ) : null}
+      </View>
 
       {/* Episodes */}
-      <View style={{ marginTop: spacing.xxl }}>
+      <View style={{ marginTop: spacing.xl }}>
         <SectionHeader
-          title="Vos épisodes"
-          subtitle="Les moments que vous avez vécus"
+          title={`Vos épisodes${episodes && episodes.length > 0 ? ` · ${episodes.length}` : ""}`}
           action={episodes && episodes.length > 0 ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}
         />
 
@@ -218,13 +273,13 @@ export default function MomentsScreen() {
         ) : mode === "grid" ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
             {episodes.map((ep, i) => (
-              <EpisodePoster key={ep.id} episode={ep} width={CARD_WIDTH} index={i} onPress={() => openEpisode(ep.id)} />
+              <EpisodePoster key={ep.id} episode={ep} progress={progressById?.get(ep.id)} width={CARD_WIDTH} index={i} onPress={() => openEpisode(ep.id)} />
             ))}
           </View>
         ) : (
           <View style={{ gap: spacing.md }}>
             {episodes.map((ep, i) => (
-              <EpisodeRow key={ep.id} episode={ep} index={i} onPress={() => openEpisode(ep.id)} />
+              <EpisodeRow key={ep.id} episode={ep} progress={progressById?.get(ep.id)} index={i} onPress={() => openEpisode(ep.id)} />
             ))}
           </View>
         )}

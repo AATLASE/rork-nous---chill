@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronRight, ImageIcon, MapPin, Sparkles, Video } from "lucide-react-native";
+import { ChevronRight, ImageIcon, MapPin, PenLine, Sparkles, Video } from "lucide-react-native";
 import React from "react";
 import { View } from "react-native";
 import { Badge } from "@/components/ui/Badge";
@@ -8,7 +8,7 @@ import { FadeIn, PressableScale } from "@/components/ui/motion";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, shadows, spacing } from "@/constants/theme";
 import { formatDateShort, normalizeTags } from "@/lib/format";
-import type { Episode } from "@/lib/types";
+import type { Episode, ReviewProgress } from "@/lib/types";
 
 /**
  * The cover is set once, at creation, and nothing changes it afterwards —
@@ -33,16 +33,29 @@ function MediaCountBadge({ episode }: { episode: Episode }) {
 }
 
 /**
- * An episode reveals its reviews on its own, the moment the last participant
- * publishes — nobody presses a button for it, so the list has to be where you
- * notice it happened.
+ * One badge per card, the thing the group expects of you first. "À toi" is the
+ * only red on the card; otherwise how many have answered; once revealed, gold.
+ * An episode reveals on its own when the last participant publishes, so the
+ * list is where you notice it happened.
  */
-function RevealedBadge({ episode }: { episode: Episode }) {
-  if (!episode.reviews_revealed_at) return null;
-  return <Badge label="Révélé" tone="gold" icon={<Sparkles size={11} color={colors.accent} />} />;
+function ReviewStatusBadge({ episode, progress, onPoster }: { episode: Episode; progress?: ReviewProgress; onPoster?: boolean }) {
+  const revealed = progress ? progress.revealed : !!episode.reviews_revealed_at;
+  if (revealed) return <Badge label="Révélé" tone="gold" icon={<Sparkles size={11} color={colors.accent} />} />;
+  if (!progress || progress.total === 0) return null;
+  if (progress.myTurn) {
+    return (
+      <Badge label="À toi" tone="solid" icon={<PenLine size={11} color={colors.primaryFg} />} />
+    );
+  }
+  const label = `${progress.answered}/${progress.total}${progress.lastMissing ? ` · plus que ${progress.lastMissing}` : ""}`;
+  return onPoster ? (
+    <Badge label={label} tone="onImage" />
+  ) : (
+    <Badge label={label} tone="muted" />
+  );
 }
 
-export function EpisodePoster({ episode, width = 144, index = 0, onPress }: { episode: Episode; width?: number; index?: number; onPress: () => void }) {
+export function EpisodePoster({ episode, progress, width = 144, index = 0, onPress }: { episode: Episode; progress?: ReviewProgress; width?: number; index?: number; onPress: () => void }) {
   const cover = getEpisodeCover(episode);
   return (
     <FadeIn delay={index * 60}>
@@ -56,7 +69,9 @@ export function EpisodePoster({ episode, width = 144, index = 0, onPress }: { ep
         )}
         <LinearGradient colors={["transparent", "rgba(8,8,9,0.9)"]} locations={[0.4, 1]} style={{ position: "absolute", width: "100%", height: "100%" }} />
         <View style={{ position: "absolute", top: 8, left: 8, right: 8, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-          <RevealedBadge episode={episode} />
+          <View style={{ flexShrink: 1 }}>
+            <ReviewStatusBadge episode={episode} progress={progress} onPoster />
+          </View>
           <View style={{ marginLeft: "auto" }}>
             <MediaCountBadge episode={episode} />
           </View>
@@ -74,7 +89,7 @@ export function EpisodePoster({ episode, width = 144, index = 0, onPress }: { ep
   );
 }
 
-export function EpisodeRow({ episode, index = 0, onPress }: { episode: Episode; index?: number; onPress: () => void }) {
+export function EpisodeRow({ episode, progress, index = 0, onPress }: { episode: Episode; progress?: ReviewProgress; index?: number; onPress: () => void }) {
   const cover = getEpisodeCover(episode);
   const tags = normalizeTags(episode.tags);
   return (
@@ -100,9 +115,9 @@ export function EpisodeRow({ episode, index = 0, onPress }: { episode: Episode; 
               </View>
             ) : null}
           </View>
-          {tags.length > 0 || episode.reviews_revealed_at ? (
+          {tags.length > 0 || episode.reviews_revealed_at || (progress && progress.total > 0) ? (
             <View style={{ flexDirection: "row", gap: 5, marginTop: 1, flexWrap: "wrap" }}>
-              <RevealedBadge episode={episode} />
+              <ReviewStatusBadge episode={episode} progress={progress} />
               {tags.slice(0, 2).map((t) => (
                 <Badge key={t} label={t} tone="muted" />
               ))}

@@ -51,6 +51,7 @@ import {
   canParticipate,
   effectiveRole,
   isOwner,
+  reviewersOf,
   type EpisodeMedia,
   type MemberRole,
   type Profile,
@@ -138,10 +139,7 @@ export default function EpisodeDetailScreen() {
     () => new Set([...(reviewAuthors ?? []), ...(reviews ?? []).map((r) => r.author_id)]),
     [reviewAuthors, reviews]
   );
-  const reviewers: SpaceMember[] = useMemo(
-    () => (members ?? []).filter((m) => m.role === "owner" || (m.role === "member" && m.can_create_episodes)),
-    [members]
-  );
+  const reviewers: SpaceMember[] = useMemo(() => reviewersOf(members), [members]);
   // Alone in the space: the reveal has nobody to wait for, so the card talks
   // about inviting the group instead of "you are the last one to answer".
   const alone = reviewers.length === 1;

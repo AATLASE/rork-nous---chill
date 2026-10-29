@@ -56,6 +56,28 @@ export function useEpisodeReviewAuthors(episodeId: string) {
   });
 }
 
+/**
+ * The same, for every episode of a space in one call: the home cards say
+ * "À toi" or "3/4" without opening each episode. Episode id → author ids.
+ */
+export function useSpaceReviewAuthors(spaceId: string) {
+  return useQuery({
+    queryKey: qk.spaceReviewAuthors(spaceId),
+    enabled: !!spaceId,
+    queryFn: async (): Promise<Map<string, Set<string>>> => {
+      const { data, error } = await supabase.rpc("space_review_authors", { p_space_id: spaceId });
+      if (error) throw error;
+      const byEpisode = new Map<string, Set<string>>();
+      for (const row of data ?? []) {
+        const set = byEpisode.get(row.episode_id) ?? new Set<string>();
+        set.add(row.author_id);
+        byEpisode.set(row.episode_id, set);
+      }
+      return byEpisode;
+    },
+  });
+}
+
 export function useMyReview(episodeId: string) {
   const { userId } = useAuth();
   return useQuery({
@@ -127,6 +149,7 @@ export function useUpsertReview() {
       // so the screen opens on the reveal instead of the sealed card.
       queryClient.invalidateQueries({ queryKey: qk.episode(variables.episodeId) });
       queryClient.invalidateQueries({ queryKey: qk.episodes(variables.spaceId) });
+      queryClient.invalidateQueries({ queryKey: qk.spaceReviewAuthors(variables.spaceId) });
     },
   });
 }

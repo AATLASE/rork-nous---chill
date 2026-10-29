@@ -4,7 +4,7 @@ import { colors, radius } from "@/constants/theme";
 import { MemberRole } from "@/lib/types";
 import { AppText } from "./Text";
 
-type Tone = "primary" | "gold" | "muted" | "success" | "destructive" | "outline";
+type Tone = "primary" | "gold" | "muted" | "success" | "destructive" | "outline" | "solid" | "onImage";
 
 interface BadgeProps {
   label: string;
@@ -25,6 +25,12 @@ function toneColors(tone: Tone): { bg: string; fg: string; border?: string } {
       return { bg: colors.destructiveSoft, fg: colors.destructive };
     case "outline":
       return { bg: "transparent", fg: colors.textMuted, border: colors.borderStrong };
+    // What the group expects of you: the one filled red badge.
+    case "solid":
+      return { bg: colors.primary, fg: colors.primaryFg };
+    // Over a photo, where a tinted background would vanish.
+    case "onImage":
+      return { bg: "rgba(0,0,0,0.55)", fg: "#fff" };
     case "muted":
     default:
       return { bg: colors.surface, fg: colors.textMuted };
@@ -47,12 +53,13 @@ export function Badge({ label, tone = "muted", icon, style }: BadgeProps) {
           paddingVertical: 4,
           borderRadius: radius.sm,
           alignSelf: "flex-start",
+          maxWidth: "100%",
         },
         style,
       ]}
     >
       {icon}
-      <AppText style={{ fontSize: 11.5, fontWeight: "700", color: c.fg, letterSpacing: 0.2 }}>{label}</AppText>
+      <AppText numberOfLines={1} style={{ flexShrink: 1, fontSize: 11.5, fontWeight: "700", color: c.fg, letterSpacing: 0.2 }}>{label}</AppText>
     </View>
   );
 }

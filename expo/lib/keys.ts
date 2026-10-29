@@ -10,6 +10,7 @@ export const qk = {
   media: (episodeId: string) => ["media", episodeId] as const,
   reviews: (episodeId: string) => ["reviews", episodeId] as const,
   reviewAuthors: (episodeId: string) => ["reviewAuthors", episodeId] as const,
+  spaceReviewAuthors: (spaceId: string) => ["spaceReviewAuthors", spaceId] as const,
   myReview: (episodeId: string, userId: string | null) => ["myReview", episodeId, userId] as const,
   comments: (episodeId: string) => ["comments", episodeId] as const,
   likes: (episodeId: string) => ["likes", episodeId] as const,

@@ -186,6 +186,44 @@ export function isOwner(member: Pick<SpaceMember, "role"> | null | undefined): b
   return member?.role === "owner";
 }
 
+/**
+ * Who has to write a review before an episode reveals: the owner and the
+ * members allowed to create episodes. The database applies the same rule
+ * (reveal_episode_reviews_if_complete, space_participant_ids).
+ */
+export function reviewersOf<M extends Pick<SpaceMember, "role" | "can_create_episodes">>(members: M[] | null | undefined): M[] {
+  return (members ?? []).filter((m) => m.role === "owner" || (m.role === "member" && !!m.can_create_episodes));
+}
+
+/** Where an episode stands for the person looking at it, as the home cards show it. */
+export interface ReviewProgress {
+  revealed: boolean;
+  /** I take part and have not written yet. */
+  myTurn: boolean;
+  answered: number;
+  total: number;
+  /** The only person still missing, when exactly one is. */
+  lastMissing: string | null;
+}
+
+export function reviewProgress(
+  episode: Pick<Episode, "reviews_revealed_at">,
+  authors: ReadonlySet<string> | undefined,
+  reviewers: (Pick<SpaceMember, "user_id"> & { profile?: { name?: string | null } | null })[],
+  userId: string | null,
+  seasonUnlocked: boolean,
+): ReviewProgress {
+  const done = authors ?? new Set<string>();
+  const missing = reviewers.filter((m) => !done.has(m.user_id));
+  return {
+    revealed: !!episode.reviews_revealed_at || seasonUnlocked,
+    myTurn: !!userId && missing.some((m) => m.user_id === userId),
+    answered: reviewers.length - missing.length,
+    total: reviewers.length,
+    lastMissing: missing.length === 1 ? missing[0].profile?.name?.trim() || null : null,
+  };
+}
+
 /** Display role accounting for un-promoted members being treated as observers. */
 export function effectiveRole(
   member: Pick<SpaceMember, "role" | "can_create_episodes"> | null | undefined
