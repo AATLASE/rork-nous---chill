@@ -279,12 +279,15 @@ function buildCandidates(ctx: UploadContext): PathCandidate[] {
   const { kind, spaceId, userId, episodeId } = ctx;
   const list: PathCandidate[] = [];
   if (spaceId) {
+    // The storage rules (supabase/migrations/20261029070000) require the space
+    // as the FIRST folder, so those two layouts come first; the others only
+    // remain as a fallback for a policy change.
+    if (episodeId) list.push({ template: "space-episode", folder: `${spaceId}/${episodeId}` });
+    list.push({ template: "space-kind", folder: `${spaceId}/${kind}` });
     list.push({ template: "kind-first", folder: `${kind}/${spaceId}` });
     if (userId) list.push({ template: "user-first", folder: `${userId}/${spaceId}` });
     if (kind !== "episodes") list.push({ template: "episodes-first", folder: `episodes/${spaceId}` });
     list.push({ template: "spaces-first", folder: `spaces/${spaceId}` });
-    if (episodeId) list.push({ template: "space-episode", folder: `${spaceId}/${episodeId}` });
-    list.push({ template: "space-kind", folder: `${spaceId}/${kind}` });
   }
   return list;
 }
