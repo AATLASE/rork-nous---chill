@@ -157,13 +157,21 @@ async function sendExpoPush(
   return "sent";
 }
 
+/** Constant-time comparison, so response timing says nothing about the secret. */
+function sameSecret(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i];
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (!WEBHOOK_SECRET) {
     return json(500, { error: "PUSH_WEBHOOK_SECRET n'est pas configuré" });
   }
-  // Timing-safe enough for a 32-byte random secret, and the alternative is an
-  // open relay for push notifications.
-  if (req.headers.get("x-push-secret") !== WEBHOOK_SECRET) {
+  // Without this check the function is an open relay for push notifications.
+  if (!sameSecret(req.headers.get("x-push-secret") ?? "", WEBHOOK_SECRET)) {
     return json(401, { error: "secret invalide" });
   }
 

@@ -59,7 +59,13 @@ self.addEventListener("push", (event) => {
  * the tab the app is already open in rather than piling up windows. */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  // Only ever open pages of the app itself: a notification carrying an outside
+  // URL falls back to the home screen.
+  let target = "/";
+  try {
+    const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (url.origin === self.location.origin) target = url.pathname + url.search + url.hash;
+  } catch (e) {}
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

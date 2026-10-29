@@ -1,4 +1,5 @@
--- Baseline, part 2: storage bucket and storage.objects policies as they exist
+-- Baseline, part 2: storage bucket, storage.objects policies and the auth.users
+-- trigger as they exist
 -- in production on 2026-10-29 (pulled with `supabase db dump --schema storage`).
 -- Part 1 (20261029013924_remote_schema.sql) only covers the public schema.
 -- Copied as-is so the repo reproduces prod; tightening them is a later lot
@@ -26,3 +27,8 @@ DROP POLICY IF EXISTS "episode_media_storage_write" ON "storage"."objects";
 CREATE POLICY "episode_media_storage_write" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK ((("bucket_id" = 'episode-media'::"text") AND (EXISTS ( SELECT 1
    FROM "public"."space_members" "sm"
   WHERE (("sm"."space_id" = (("storage"."foldername"("objects"."name"))[1])::"uuid") AND ("sm"."user_id" = "auth"."uid"()) AND ("sm"."role" = ANY (ARRAY['owner'::"text", 'member'::"text"])))))));
+
+-- Trigger on auth.users (dumped separately with `--schema auth`): every new
+-- account gets its public.profiles row.
+DROP TRIGGER IF EXISTS "on_auth_user_created" ON "auth"."users";
+CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" FOR EACH ROW EXECUTE FUNCTION "public"."handle_new_user"();
