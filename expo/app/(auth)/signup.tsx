@@ -147,7 +147,9 @@ export default function SignupScreen() {
             <TouchableOpacity
               onPress={() => setShowPassword((v) => !v)}
               style={{ position: "absolute", right: 12, top: 34 }}
-              hitSlop={10}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             >
               {showPassword ? <EyeOff size={18} color={colors.textMuted} /> : <Eye size={18} color={colors.textMuted} />}
             </TouchableOpacity>

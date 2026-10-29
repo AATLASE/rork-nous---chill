@@ -50,7 +50,7 @@ interface Props {
 export function CoverAdjustModal({ asset, title = "Ajuster la couverture", shape = "cover", onCancel, onDone }: Props) {
   const window = Dimensions.get("window");
   const isCircle = shape === "circle";
-  // Clear window matches the SpaceCard ratio (full-width card, 190pt tall),
+  // Clear window matches the space cover on the home screen (full width, 190pt tall),
   // or a centered square for the circular avatar frame.
   const coverW = Math.round(window.width - spacing.lg * 2 - 8);
   const cardRatio = (window.width - spacing.lg * 2) / 190;

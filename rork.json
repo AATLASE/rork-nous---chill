@@ -5,11 +5,6 @@
       "name": "Gather",
       "path": "expo",
       "framework": "react-native"
-    },
-    {
-      "name": "Gather",
-      "path": "ios",
-      "framework": "swift"
     }
   ]
 }

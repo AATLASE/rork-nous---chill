@@ -69,7 +69,12 @@ export default function MembersScreen() {
             </View>
           </View>
           {owner && !memberIsOwner ? (
-            <TouchableOpacity onPress={() => confirmRemove(member.user_id, member.profile?.name ?? "Ce membre")} hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => confirmRemove(member.user_id, member.profile?.name ?? "Ce membre")}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={`Retirer ${member.profile?.name ?? "ce membre"} de l'espace`}
+            >
               <Trash2 size={17} color={colors.textFaint} />
             </TouchableOpacity>
           ) : null}
