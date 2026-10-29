@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import { AppState, Platform } from "react-native";
 import { qk } from "./keys";
-import { uploadMediaAll, type PickedAsset } from "./media";
+import { extensionFor, uploadMediaAll, type PickedAsset } from "./media";
 import { queryClient } from "./queryClient";
 import { supabase } from "./supabase";
 
@@ -15,10 +15,15 @@ import { supabase } from "./supabase";
  * queue moves the waiting out of the way. The review is saved, the screen
  * closes, and the files leave on their own.
  *
- * What the queue guarantees, on every platform: nothing is lost. A job survives
+ * What the queue guarantees on iOS and Android: nothing is lost. A job survives
  * the screen closing, the app being killed, a flight-mode tunnel, a failed
  * request. It is retried when the app comes back to the foreground, and again
  * at the next launch, until it lands or gives up loudly.
+ *
+ * On the web the files only exist as long as the page (a `blob:` URI dies with
+ * it), so the queue lives in memory: it retries when the tab becomes visible
+ * again or the network comes back, and the browser asks before the page is
+ * closed while something is still waiting.
  *
  * What it does NOT guarantee: transfers do not continue while the app is
  * suspended. iOS stops JavaScript seconds after backgrounding; a transfer in
@@ -28,6 +33,12 @@ import { supabase } from "./supabase";
  */
 export interface UploadJob {
   id: string;
+  /**
+   * Who added the file. Only that account's session uploads it: with a second
+   * account signed in on the same phone, the job waits instead of going out
+   * under the wrong name. Missing on jobs queued before this field existed.
+   */
+  userId?: string;
   episodeId: string;
   spaceId: string;
   /** Durable copy of the file — see keepFile. */
@@ -145,7 +156,7 @@ async function keepFile(asset: PickedAsset, id: string): Promise<string> {
   if (!PENDING_DIR) return asset.uri;
   try {
     await FileSystem.makeDirectoryAsync(PENDING_DIR, { intermediates: true });
-    const ext = asset.type === "video" ? "mp4" : asset.mimeType.includes("png") ? "png" : "jpg";
+    const ext = extensionFor(asset.type, asset.mimeType);
     const to = `${PENDING_DIR}${id}.${ext}`;
     await FileSystem.copyAsync({ from: asset.uri, to });
     return to;
@@ -175,12 +186,15 @@ export async function enqueueEpisodeMedia(
 ): Promise<void> {
   if (assets.length === 0) return;
   await load();
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user?.id;
 
   const jobs: UploadJob[] = [];
   for (const asset of assets) {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     jobs.push({
       id,
+      userId,
       episodeId,
       spaceId,
       uri: await keepFile(asset, id),
@@ -305,11 +319,14 @@ async function runDrain(): Promise<void> {
   const userId = data.session?.user?.id ?? null;
   if (!userId) return;
 
+  // Another account's files wait for that account to sign in again.
+  const mine = (job: UploadJob) => !job.userId || job.userId === userId;
+
   // One episode at a time so their rows stay one insert, as they were when the
   // upload was inline.
-  while (queue.length > 0) {
-    const episodeId = queue[0].episodeId;
-    const group = queue.filter((job) => job.episodeId === episodeId);
+  for (let next = queue.find(mine); next; next = queue.find(mine)) {
+    const episodeId = next.episodeId;
+    const group = queue.filter((job) => job.episodeId === episodeId && mine(job));
     const cleared = await sendEpisodeGroup(group, userId);
     if (!cleared) break;
   }
@@ -386,6 +403,19 @@ export function startUploadQueue(): void {
   if (Platform.OS !== "web") {
     AppState.addEventListener("change", (state) => {
       if (state === "active") void drainUploadQueue();
+    });
+  } else if (typeof window !== "undefined") {
+    // The web has no AppState: coming back to the tab and getting the network
+    // back are the moments a stalled pass can succeed.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void drainUploadQueue();
+    });
+    window.addEventListener("online", () => void drainUploadQueue());
+    // Closing the page loses whatever is still waiting: let the browser ask.
+    window.addEventListener("beforeunload", (event) => {
+      if (queue.length === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
     });
   }
 

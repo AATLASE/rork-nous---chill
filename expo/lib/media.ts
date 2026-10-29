@@ -15,6 +15,36 @@ export interface PickedAsset {
   height?: number;
 }
 
+/**
+ * Largest video the app accepts. Supabase storage refuses bigger files (50 MB
+ * per file on the current plan), and the whole file is read into memory before
+ * it is sent: a 4K clip of a few hundred MB crashed the PWA tab, or failed five
+ * times in the background before being dropped.
+ */
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+
+/** File extension that matches what the bytes are (an iPhone .mov stays .mov). */
+export function extensionFor(type: "image" | "video", mimeType: string): string {
+  if (type === "video") {
+    if (mimeType.includes("quicktime")) return "mov";
+    if (mimeType.includes("webm")) return "webm";
+    return "mp4";
+  }
+  return mimeType.includes("png") ? "png" : "jpg";
+}
+
+/** Refuses the selection when a video is over MAX_VIDEO_BYTES, before anything is queued. */
+function checkVideoSizes(assets: ImagePicker.ImagePickerAsset[]): void {
+  const tooBig = assets.some((a) => {
+    if (a.type !== "video") return false;
+    const size = a.fileSize ?? (a as { file?: { size?: number } }).file?.size;
+    return typeof size === "number" && size > MAX_VIDEO_BYTES;
+  });
+  if (tooBig) {
+    throw new Error(`Cette vidéo est trop lourde (${MAX_VIDEO_BYTES / 1024 / 1024} Mo maximum). Choisis un extrait plus court.`);
+  }
+}
+
 function toPicked(asset: ImagePicker.ImagePickerAsset): PickedAsset {
   const isVideo = asset.type === "video";
   return {
@@ -43,6 +73,7 @@ export async function pickFromLibrary(multiple = true): Promise<PickedAsset[]> {
     videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
   });
   if (result.canceled) return [];
+  checkVideoSizes(result.assets);
   return result.assets.map(toPicked);
 }
 
@@ -55,6 +86,7 @@ export async function captureWithCamera(): Promise<PickedAsset[]> {
     videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
   });
   if (result.canceled) return [];
+  checkVideoSizes(result.assets);
   return result.assets.map(toPicked);
 }
 
@@ -299,7 +331,7 @@ async function uploadBytes(folder: string, bytes: ArrayBuffer, mimeType: string,
  */
 export async function uploadMedia(ctx: UploadContext, asset: PickedAsset): Promise<string> {
   const source = asset.type === "image" ? await prepareImage(asset) : asset;
-  const ext = source.type === "video" ? "mp4" : source.mimeType.includes("png") ? "png" : "jpg";
+  const ext = extensionFor(source.type, source.mimeType);
   const bytes = await readAssetBytes(source.uri);
   if (!bytes || bytes.byteLength === 0) {
     throw new Error("Le fichier sélectionné est vide.");
