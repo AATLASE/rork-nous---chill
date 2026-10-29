@@ -1,6 +1,5 @@
 // Generated from the database schema: do not edit. Regenerate with `npm run gen:types`
 // (local Supabase running, see supabase/seed.sql). lib/types.ts holds the app-level types.
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
@@ -651,6 +650,11 @@ isOneToOne: false
                            },
 "space_participant_ids":
 { Args: { "p_space_id": string }; Returns: string[]
+                           },
+"space_review_authors":
+{ Args: { "p_space_id": string }; Returns: {
+              "author_id": string,"episode_id": string
+            }[]
                            },
 "use_invite_code":
 { Args: { "p_code": string }; Returns: undefined
