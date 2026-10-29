@@ -57,3 +57,12 @@ insert into public.reviews (episode_id, space_id, author_id, author_name, rating
 
 insert into public.episode_comments (episode_id, space_id, author_id, author_name, body) values
   ('eeeeeeee-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'Marc', 'Trop bien cette soirée');
+
+-- A space where Olivia is alone, to see what a single participant is told.
+insert into public.spaces (id, slug, name, description, created_by, season_start, season_end)
+values ('aaaaaaaa-0000-0000-0000-000000000002', 'espace-solo', 'Espace solo', 'Olivia seule',
+  '11111111-1111-1111-1111-111111111111', current_date - 3, current_date + 30);
+insert into public.space_members (space_id, user_id, role, can_create_episodes) values
+  ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'owner', true);
+insert into public.episodes (id, space_id, number, title, date, place, created_by) values
+  ('eeeeeeee-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000002', 1, 'Rando en solo', current_date - 1, 'Fontainebleau', '11111111-1111-1111-1111-111111111111');

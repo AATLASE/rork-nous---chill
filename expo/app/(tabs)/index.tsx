@@ -122,7 +122,7 @@ export default function MomentsScreen() {
           {space.cover_url ? (
             <Image source={{ uri: space.cover_url }} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" transition={250} />
           ) : (
-            <LinearGradient colors={["#3A1418", "#1E1012"]} style={{ position: "absolute", width: "100%", height: "100%" }} />
+            <LinearGradient colors={[colors.heroFrom, colors.heroTo]} style={{ position: "absolute", width: "100%", height: "100%" }} />
           )}
           <LinearGradient colors={["rgba(8,8,9,0.05)", "rgba(8,8,9,0.45)", "rgba(8,8,9,0.92)"]} locations={[0, 0.5, 1]} style={{ position: "absolute", width: "100%", height: "100%" }} />
 

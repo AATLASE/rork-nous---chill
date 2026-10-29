@@ -21,6 +21,8 @@ const darkColors = {
   // Lines
   border: "#303034",
   borderStrong: "#3D3D42",
+  // The field being typed in. Neutral on purpose: red means an error.
+  focus: "#C8C8CE",
 
   // Text
   // `caption` (12px) and `overline` (11px) render in textFaint, so it carries
@@ -47,6 +49,15 @@ const darkColors = {
   destructive: "#E63946",
   destructiveSoft: "rgba(230,57,70,0.16)",
 
+  // Poster blocks (bilan scellé, affiches sans photo): they stay dark in both
+  // themes, so their text is always white rather than following `text`.
+  heroFrom: "#3A1418",
+  heroTo: "#1E1012",
+  onHero: "#FFFFFF",
+  onHeroMuted: "rgba(255,255,255,0.7)",
+  // Top of the sign-in and splash backgrounds, fading into `bg`.
+  brandGlow: "#2A0E13",
+
   // Misc
   overlay: "rgba(0,0,0,0.6)",
   scrim: "rgba(10,10,12,0.92)",
@@ -70,6 +81,7 @@ const lightColors: Palette = {
   // Lines
   border: "#E2E2E8",
   borderStrong: "#CFCFD7",
+  focus: "#1B1B1F",
 
   // Text
   // Light mode was the worse offender: textFaint measured 2.5:1 on bg. Muted is
@@ -94,6 +106,14 @@ const lightColors: Palette = {
   warning: "#C97F16",
   destructive: "#D62839",
   destructiveSoft: "rgba(214,40,57,0.10)",
+
+  // Poster blocks: same as dark on purpose (see darkColors).
+  heroFrom: "#3A1418",
+  heroTo: "#1E1012",
+  onHero: "#FFFFFF",
+  onHeroMuted: "rgba(255,255,255,0.7)",
+  // The dark bordeaux sat behind dark text here; a light tint keeps the glow.
+  brandGlow: "#F6DCE0",
 
   // Misc
   overlay: "rgba(15,15,20,0.45)",

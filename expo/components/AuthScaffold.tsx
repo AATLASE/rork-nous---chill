@@ -10,7 +10,7 @@ export function AuthScaffold({ children }: { children: React.ReactNode }) {
     <View style={{ flex: 1, backgroundColor: colors.bgDeep }}>
       <StatusBar style="light" />
       <LinearGradient
-        colors={["#2A0E13", colors.bg, colors.bgDeep]}
+        colors={[colors.brandGlow, colors.bg, colors.bgDeep]}
         locations={[0, 0.45, 1]}
         style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
       />

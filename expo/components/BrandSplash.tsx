@@ -48,7 +48,7 @@ export function BrandSplash({ done, onHidden }: { done: boolean; onHidden: () =>
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: screen, zIndex: 50 }]}>
       <View style={{ flex: 1, backgroundColor: colors.bgDeep }}>
         <LinearGradient
-          colors={["#2A0E13", colors.bg, colors.bgDeep]}
+          colors={[colors.brandGlow, colors.bg, colors.bgDeep]}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />

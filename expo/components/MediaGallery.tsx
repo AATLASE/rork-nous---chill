@@ -144,7 +144,7 @@ export function MediaGallery({ media, height = 360, emoji = "🎬" }: { media: E
 
   if (!media || media.length === 0) {
     return (
-      <LinearGradient colors={["#3A1418", "#1A1012"]} style={{ height, alignItems: "center", justifyContent: "center" }}>
+      <LinearGradient colors={[colors.heroFrom, colors.heroTo]} style={{ height, alignItems: "center", justifyContent: "center" }}>
         <AppText style={{ fontSize: 74, opacity: 0.5 }}>{emoji}</AppText>
       </LinearGradient>
     );

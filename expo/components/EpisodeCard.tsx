@@ -50,7 +50,7 @@ export function EpisodePoster({ episode, width = 144, index = 0, onPress }: { ep
         {cover ? (
           <Image source={{ uri: cover }} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" transition={200} />
         ) : (
-          <LinearGradient colors={["#2A1518", "#171012"]} style={{ position: "absolute", width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+          <LinearGradient colors={[colors.heroFrom, colors.heroTo]} style={{ position: "absolute", width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
             <AppText style={{ fontSize: 44, opacity: 0.55 }}>🎬</AppText>
           </LinearGradient>
         )}

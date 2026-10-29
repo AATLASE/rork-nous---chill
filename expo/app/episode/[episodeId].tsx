@@ -15,6 +15,8 @@ import {
   Send,
   Sparkles,
   Trash2,
+  UserPlus,
+  Users,
   X,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
@@ -28,7 +30,7 @@ import { Badge, RoleBadge } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, Divider, SectionHeader } from "@/components/ui/Card";
 import { Loader } from "@/components/ui/Feedback";
-import { useAutoGrow } from "@/components/ui/Input";
+import { noWebOutline, useAutoGrow } from "@/components/ui/Input";
 import { FadeIn, Pulse, PressableScale } from "@/components/ui/motion";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, spacing } from "@/constants/theme";
@@ -115,6 +117,7 @@ export default function EpisodeDetailScreen() {
   // estimate is kept in step by hand as the text changes.
   const [caret, setCaret] = useState<number>(0);
   const [replyTo, setReplyTo] = useState<{ rootId: string; name: string } | null>(null);
+  const [draftFocused, setDraftFocused] = useState<boolean>(false);
   // The composer sits in the page scroll, so it can grow with the comment
   // rather than trapping a long one behind an inner scrollbar.
   const draftGrow = useAutoGrow({ enabled: true, value: draft, minHeight: 47, extraHeight: 3 });
@@ -139,6 +142,9 @@ export default function EpisodeDetailScreen() {
     () => (members ?? []).filter((m) => m.role === "owner" || (m.role === "member" && m.can_create_episodes)),
     [members]
   );
+  // Alone in the space: the reveal has nobody to wait for, so the card talks
+  // about inviting the group instead of "you are the last one to answer".
+  const alone = reviewers.length === 1;
   const pendingCount = useMemo(
     () => reviewers.filter((m) => !answeredIds.has(m.user_id)).length,
     [reviewers, answeredIds]
@@ -494,6 +500,26 @@ export default function EpisodeDetailScreen() {
                       <Button title="Modifier ma review" variant="secondary" icon={<PenLine size={16} color={colors.text} />} onPress={() => router.push({ pathname: "/review/[episodeId]", params: { episodeId } })} />
                     </Card>
                   ) : (
+                    alone ? (
+                      <Card glow style={{ gap: spacing.md, alignItems: "center" }}>
+                        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                          <Users size={24} color={colors.primary} />
+                        </View>
+                        <AppText variant="h3" center>Les reviews se révèlent ensemble</AppText>
+                        <AppText variant="bodyMuted" center>
+                          Chacun écrit la sienne en secret, puis tout se dévoile d&apos;un coup… mais tu es seul(e) ici pour l&apos;instant. Invite ta bande pour jouer le jeu.
+                        </AppText>
+                        {isOwner(space?.membership) ? (
+                          <Button title="Inviter mon groupe" icon={<UserPlus size={18} color={colors.primaryFg} />} onPress={() => router.push({ pathname: "/space-members/[spaceId]", params: { spaceId } })} fullWidth />
+                        ) : null}
+                        <Button
+                          title="Écrire quand même"
+                          variant={isOwner(space?.membership) ? "ghost" : "primary"}
+                          onPress={() => router.push({ pathname: "/review/[episodeId]", params: { episodeId } })}
+                          fullWidth
+                        />
+                      </Card>
+                    ) : (
                     <Pulse>
                       <Card glow style={{ gap: spacing.md, alignItems: "center" }}>
                         <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
@@ -508,6 +534,7 @@ export default function EpisodeDetailScreen() {
                         <Button title="Écrire ma review" onPress={() => router.push({ pathname: "/review/[episodeId]", params: { episodeId } })} fullWidth />
                       </Card>
                     </Pulse>
+                    )
                   )
                 ) : (
                   <Card style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
@@ -520,8 +547,8 @@ export default function EpisodeDetailScreen() {
                   </Card>
                 )}
 
-                {/* Who answered */}
-                {reviewers.length > 0 ? (
+                {/* Who answered — nothing to track with a single participant. */}
+                {reviewers.length > 1 ? (
                   <Card style={{ gap: spacing.md }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <AppText variant="overline">Qui a déjà répondu</AppText>
@@ -702,11 +729,13 @@ export default function EpisodeDetailScreen() {
                       placeholder={replyTo ? `Répondre à ${replyTo.name}…` : "Ajouter un commentaire… (@ pour mentionner)"}
                       placeholderTextColor={colors.textFaint}
                       onSubmitEditing={onSendComment}
+                      onFocus={() => setDraftFocused(true)}
+                      onBlur={() => setDraftFocused(false)}
                       onContentSizeChange={draftGrow.onContentSizeChange}
                       returnKeyType="send"
                       multiline
                       textAlignVertical="top"
-                      style={{ flex: 1, color: colors.text, fontSize: 15, backgroundColor: colors.bgElevated, borderRadius: radius.xl, borderWidth: 1.5, borderColor: replyTo ? colors.primary : colors.border, paddingHorizontal: spacing.lg, paddingTop: 12, paddingBottom: 12, minHeight: draftGrow.minHeight, height: draftGrow.height }}
+                      style={[{ flex: 1, color: colors.text, fontSize: 15, backgroundColor: colors.bgElevated, borderRadius: radius.xl, borderWidth: 1.5, borderColor: replyTo ? colors.primary : draftFocused ? colors.focus : colors.border, paddingHorizontal: spacing.lg, paddingTop: 12, paddingBottom: 12, minHeight: draftGrow.minHeight, height: draftGrow.height }, noWebOutline]}
                     />
                     <IconButton icon={<Send size={18} color={colors.primaryFg} />} variant="primary" onPress={onSendComment} accessibilityLabel="Envoyer le commentaire" />
                   </View>

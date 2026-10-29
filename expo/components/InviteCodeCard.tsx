@@ -10,6 +10,7 @@ import { confirmAction } from "@/lib/confirm";
 import { friendlyError } from "@/lib/errors";
 import { inviteLink } from "@/lib/pendingInvite";
 import type { InviteRole } from "@/lib/types";
+import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
 
 /** What each code gives, said the same way on the card and in the shared message. */
@@ -28,6 +29,21 @@ export const INVITE_COPY: Record<InviteRole, { title: string; explanation: strin
   },
 };
 
+/** What Gather is, in one sentence, for someone who has never heard of it. */
+export const INVITE_PROMISE =
+  "on y garde nos sorties, chacun note la soirée en secret et on découvre les avis de tous en même temps.";
+
+/**
+ * The shared message: who invites, what the app is, then the link (the code
+ * only as a fallback). Signed, because a bare "Rejoins X" from an unknown app
+ * reads like spam.
+ */
+export function inviteMessage({ inviterName, spaceName, role, link, code }: { inviterName?: string | null; spaceName: string; role: InviteRole; link: string; code: string }): string {
+  const name = inviterName?.trim();
+  const opening = name ? `${name} t'invite dans « ${spaceName} » sur Gather` : `Tu es invité(e) dans « ${spaceName} » sur Gather`;
+  return `${opening} : ${INVITE_PROMISE}\n${INVITE_COPY[role].shareLine}\n${link}\n(ou code : ${code})`;
+}
+
 /**
  * One of the space's two invite codes: observer or participant. Each one is an
  * address to share with everyone of that kind rather than a ticket per person;
@@ -35,6 +51,7 @@ export const INVITE_COPY: Record<InviteRole, { title: string; explanation: strin
  */
 export function InviteCodeCard({ spaceId, spaceName, role }: { spaceId: string; spaceName: string; role: InviteRole }) {
   const toast = useToast();
+  const { profile } = useAuth();
   const { data: invite, isLoading, error } = useSpaceInviteCode(spaceId, role);
   const regenerate = useRegenerateInviteCode(spaceId, role);
   const copyText = INVITE_COPY[role];
@@ -50,10 +67,8 @@ export function InviteCodeCard({ spaceId, spaceName, role }: { spaceId: string; 
   };
 
   const share = async () => {
-    if (!code) return;
-    await Share.share({
-      message: `Rejoins « ${spaceName} » sur Gather 🎬\n${copyText.shareLine}\n${link}\n(ou code : ${code})`,
-    });
+    if (!code || !link) return;
+    await Share.share({ message: inviteMessage({ inviterName: profile?.name, spaceName, role, link, code }) });
   };
 
   const confirmRegenerate = () => {

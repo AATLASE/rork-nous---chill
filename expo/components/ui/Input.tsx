@@ -6,6 +6,7 @@ import {
   TextInput,
   TextInputContentSizeChangeEventData,
   TextInputProps,
+  TextStyle,
   View,
   ViewStyle,
 } from "react-native";
@@ -33,6 +34,14 @@ export function Field({ label, error, hint, children, style }: FieldProps) {
     </View>
   );
 }
+
+/**
+ * The browser draws its own focus rectangle inside the field's border, so a
+ * focused field showed two outlines. The border alone says which field is active.
+ * "none" is missing from React Native's outlineStyle type but react-native-web
+ * passes it through; a zero width alone leaves Chrome's "auto" ring in place.
+ */
+export const noWebOutline = Platform.OS === "web" ? ({ outlineStyle: "none" } as unknown as TextStyle) : null;
 
 /** Text height of an empty multiline field — keeps the box at its ~110px look. */
 const MULTILINE_MIN_HEIGHT = 84;
@@ -104,7 +113,8 @@ export function Input({
   ...rest
 }: InputProps) {
   const [focused, setFocused] = useState<boolean>(false);
-  const borderColor = invalid ? colors.destructive : focused ? colors.primary : colors.border;
+  // Red is kept for errors: the brand red on focus read as one.
+  const borderColor = invalid ? colors.destructive : focused ? colors.focus : colors.border;
   const grow = useAutoGrow({ enabled: multiline, value, minHeight: MULTILINE_MIN_HEIGHT });
 
   return (
@@ -157,6 +167,7 @@ export function Input({
             minHeight: grow.minHeight,
             height: grow.height,
           },
+          noWebOutline,
           style,
         ]}
       />

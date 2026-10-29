@@ -119,7 +119,7 @@ export default function RecapScreen() {
       {!unlocked ? (
         <FadeIn>
           <View style={{ borderRadius: radius.xxl, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
-            <LinearGradient colors={["#2A0E13", "#16100F"]} style={{ padding: spacing.xl, alignItems: "center", gap: spacing.lg }}>
+            <LinearGradient colors={[colors.heroFrom, colors.heroTo]} style={{ padding: spacing.xl, alignItems: "center", gap: spacing.lg }}>
               <Pulse>
                 <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.primary }}>
                   <Lock size={42} color={colors.primary} />
@@ -127,8 +127,8 @@ export default function RecapScreen() {
               </Pulse>
 
               <View style={{ alignItems: "center", gap: 6 }}>
-                <AppText variant="h2" center>Le bilan est scellé</AppText>
-                <AppText variant="bodyMuted" center style={{ maxWidth: 320 }}>
+                <AppText variant="h2" center style={{ color: colors.onHero }}>Le bilan est scellé</AppText>
+                <AppText variant="bodyMuted" center style={{ maxWidth: 320, color: colors.onHeroMuted }}>
                   {status.daysLeft && status.daysLeft > 0
                     ? `Encore ${status.daysLeft} jour${status.daysLeft > 1 ? "s" : ""} de saison. Chaque épisode se révèle de son côté quand tout le monde a publié sa review — le bilan, lui, attend la fin.`
                     : "La saison touche à sa fin. Place au grand moment de vérité."}
@@ -137,12 +137,12 @@ export default function RecapScreen() {
 
               {status.daysLeft !== null ? (
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-                  <AppText style={{ fontSize: 56, fontWeight: "800", color: "#fff", letterSpacing: -2 }}>{status.daysLeft}</AppText>
-                  <AppText variant="h3" style={{ color: colors.textMuted }}>jours</AppText>
+                  <AppText style={{ fontSize: 56, fontWeight: "800", color: colors.onHero, letterSpacing: -2 }}>{status.daysLeft}</AppText>
+                  <AppText variant="h3" style={{ color: colors.onHeroMuted }}>jours</AppText>
                 </View>
               ) : null}
 
-              {space.season_end ? <AppText variant="caption">Fin prévue le {formatDate(space.season_end)}</AppText> : null}
+              {space.season_end ? <AppText variant="caption" style={{ color: colors.onHeroMuted }}>Fin prévue le {formatDate(space.season_end)}</AppText> : null}
             </LinearGradient>
           </View>
 
