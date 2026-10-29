@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CoverAdjustModal } from "@/components/CoverAdjustModal";
 import { MediaGallery, MediaGrid } from "@/components/MediaGallery";
@@ -38,6 +38,7 @@ import { friendlyError } from "@/lib/errors";
 import { formatDate, formatDuration, formatRelative, normalizeTags } from "@/lib/format";
 import { pickCoverImage, pickFromLibrary, type PickedAsset } from "@/lib/media";
 import { enqueueEpisodeMedia } from "@/lib/uploadQueue";
+import { confirmAction } from "@/lib/confirm";
 import { usePendingUploadCount } from "@/hooks/useUploadQueue";
 import {
   applyMention,
@@ -439,47 +440,35 @@ export default function EpisodeDetailScreen() {
   };
 
   const confirmDeleteMedia = (item: EpisodeMedia) => {
-    Alert.alert(
+    confirmAction(
       item.type === "video" ? "Supprimer cette vidéo ?" : "Supprimer cette photo ?",
       "Elle disparaîtra de la galerie pour tout le monde. Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteMedia.mutateAsync(item.id);
-              toast.success("Média supprimé");
-            } catch (e) {
-              toast.error(friendlyError(e));
-            }
-          },
-        },
-      ],
+      "Supprimer",
+      async () => {
+        try {
+          await deleteMedia.mutateAsync(item.id);
+          toast.success("Média supprimé");
+        } catch (e) {
+          toast.error(friendlyError(e));
+        }
+      },
     );
   };
 
   const confirmDeleteEpisode = () => {
-    Alert.alert(
+    confirmAction(
       "Supprimer cet épisode ?",
       `« ${episode.title} », ses photos, ses commentaires et les reviews associées seront définitivement supprimés.`,
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteEpisode.mutateAsync(episodeId);
-              toast.success("Épisode supprimé");
-              router.back();
-            } catch (e) {
-              toast.error(friendlyError(e));
-            }
-          },
-        },
-      ],
+      "Supprimer",
+      async () => {
+        try {
+          await deleteEpisode.mutateAsync(episodeId);
+          toast.success("Épisode supprimé");
+          router.back();
+        } catch (e) {
+          toast.error(friendlyError(e));
+        }
+      },
     );
   };
 
@@ -524,13 +513,11 @@ export default function EpisodeDetailScreen() {
       deleteComment.mutate(commentId);
       return;
     }
-    Alert.alert(
+    confirmAction(
       "Supprimer ce commentaire ?",
       `Ses ${replyCount} réponse${replyCount > 1 ? "s" : ""} seront supprimée${replyCount > 1 ? "s" : ""} avec lui.`,
-      [
-        { text: "Annuler", style: "cancel" },
-        { text: "Supprimer", style: "destructive", onPress: () => deleteComment.mutate(commentId) },
-      ]
+      "Supprimer",
+      () => deleteComment.mutate(commentId),
     );
   };
 

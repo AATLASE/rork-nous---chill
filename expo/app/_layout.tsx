@@ -16,7 +16,8 @@ import { hasSupabaseConfig } from "@/lib/supabase";
 import { registerServiceWorker } from "@/lib/pwa";
 import { queryClient } from "@/lib/queryClient";
 import { establishRecoverySession, isRecoveryUrl } from "@/lib/passwordReset";
-import { setPendingInvite } from "@/lib/pendingInvite";
+import { captureInviteFromWebUrl, setPendingInvite } from "@/lib/pendingInvite";
+import { useRedeemPendingInvite } from "@/hooks/useRedeemPendingInvite";
 import { startUploadQueue } from "@/lib/uploadQueue";
 import { ActiveSpaceProvider } from "@/providers/activeSpace";
 import { AuthProvider, useAuth } from "@/providers/auth";
@@ -25,6 +26,8 @@ import { ThemeProvider, useThemeMode } from "@/providers/theme";
 import { ToastProvider, ToastViewport } from "@/providers/toast";
 
 SplashScreen.preventAutoHideAsync();
+// Before the auth gate can redirect a signed-out visitor away from /join?code=.
+captureInviteFromWebUrl();
 
 function RootNav() {
   const { isAuthenticated, initializing, recoveryMode, enterRecoveryMode } = useAuth();
@@ -32,6 +35,7 @@ function RootNav() {
   const segments = useSegments();
   const router = useRouter();
   const [splashVisible, setSplashVisible] = useState<boolean>(true);
+  useRedeemPendingInvite();
 
   // Auth routing gate.
   useEffect(() => {

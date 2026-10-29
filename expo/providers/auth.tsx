@@ -97,13 +97,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   }, []);
 
   const signUp = useCallback(async ({ email, password, name, inviteCode }: SignUpArgs) => {
+    // Stored first: when signup returns a session, the redeem hook runs on that
+    // session change and must already find the code.
+    if (inviteCode) await setPendingInvite(inviteCode);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: { data: { name: name.trim() } },
     });
     if (error) throw error;
-    if (inviteCode) await setPendingInvite(inviteCode);
     return { needsConfirmation: !data.session };
   }, []);
 

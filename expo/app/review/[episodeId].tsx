@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Camera, Images, Lock, Music, Video, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 import { RatingStars } from "@/components/RatingStars";
 import { VideoPoster } from "@/components/VideoSurface";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -14,6 +14,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { captureWithCamera, pickFromLibrary, type PickedAsset } from "@/lib/media";
 import { enqueueEpisodeMedia } from "@/lib/uploadQueue";
+import { confirmAction } from "@/lib/confirm";
 import { useEpisode } from "@/hooks/useEpisodes";
 import { useMyReview, useUpsertReview, type ReviewValues } from "@/hooks/useReviews";
 import { useToast } from "@/providers/toast";
@@ -86,15 +87,14 @@ export default function ReviewScreen() {
       router.back();
       return;
     }
-    Alert.alert(
+    confirmAction(
       "Abandonner ta review ?",
       assets.length > 0
         ? "Ce que tu as écrit et les médias choisis ne seront pas enregistrés."
         : "Ce que tu as écrit ne sera pas enregistré.",
-      [
-        { text: "Continuer à écrire", style: "cancel" },
-        { text: "Abandonner", style: "destructive", onPress: () => router.back() },
-      ]
+      "Abandonner",
+      () => router.back(),
+      "Continuer à écrire",
     );
   };
 

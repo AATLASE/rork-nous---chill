@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Bell, Camera, ChevronRight, GraduationCap, Info, LogOut, Moon, Palette, Smartphone, Sun, Sunset, Users } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, Switch, TouchableOpacity, View } from "react-native";
+import { Platform, Switch, TouchableOpacity, View } from "react-native";
 import { CoverAdjustModal } from "@/components/CoverAdjustModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +14,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { PickedAsset, pickAvatarImage, uploadMedia } from "@/lib/media";
 import { disablePush, enablePush, pushPermission, pushSupported } from "@/lib/push";
+import { confirmAction } from "@/lib/confirm";
 import { useUpdateProfile } from "@/hooks/useProfile";
 import { useActiveSpace } from "@/providers/activeSpace";
 import { useAuth } from "@/providers/auth";
@@ -302,10 +303,7 @@ export default function ProfileScreen() {
   };
 
   const confirmSignOut = () => {
-    Alert.alert("Se déconnecter ?", "Tu pourras te reconnecter à tout moment.", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Se déconnecter", style: "destructive", onPress: () => signOut() },
-    ]);
+    confirmAction("Se déconnecter ?", "Tu pourras te reconnecter à tout moment.", "Se déconnecter", () => signOut());
   };
 
   return (

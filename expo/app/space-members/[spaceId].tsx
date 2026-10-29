@@ -1,8 +1,7 @@
 import * as Clipboard from "expo-clipboard";
-import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Copy, RefreshCw, Share2, Trash2 } from "lucide-react-native";
-import { ActivityIndicator, Alert, RefreshControl, Share, Switch, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, Share, Switch, TouchableOpacity, View } from "react-native";
 import { Avatar } from "@/components/ui/Avatar";
 import { RoleBadge } from "@/components/ui/Badge";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -13,6 +12,8 @@ import { AppText } from "@/components/ui/Text";
 import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { canParticipate, effectiveRole, isOwner, type SpaceMember } from "@/lib/types";
+import { confirmAction } from "@/lib/confirm";
+import { inviteLink } from "@/lib/pendingInvite";
 import { useMembers, useRegenerateInviteCode, useRemoveMember, useSpaceInviteCode, useUpdateMember } from "@/hooks/useMembers";
 import { useSpace } from "@/hooks/useSpaces";
 import { useAuth } from "@/providers/auth";
@@ -42,10 +43,9 @@ export default function MembersScreen() {
   };
 
   const confirmRemove = (memberUserId: string, name: string) => {
-    Alert.alert("Retirer ce membre ?", `${name} n'aura plus accès à cet espace.`, [
-      { text: "Annuler", style: "cancel" },
-      { text: "Retirer", style: "destructive", onPress: () => removeMember.mutate({ spaceId: id, userId: memberUserId }, { onError: (e) => toast.error(friendlyError(e)) }) },
-    ]);
+    confirmAction("Retirer ce membre ?", `${name} n'aura plus accès à cet espace.`, "Retirer", () =>
+      removeMember.mutate({ spaceId: id, userId: memberUserId }, { onError: (e) => toast.error(friendlyError(e)) })
+    );
   };
 
   const all = members ?? [];
@@ -191,7 +191,7 @@ function SpaceInviteCard({ spaceId, spaceName }: { spaceId: string; spaceName: s
 
   const code = invite?.code ?? null;
   const arrivals = invite?.use_count ?? 0;
-  const link = code ? Linking.createURL("join", { queryParams: { code } }) : null;
+  const link = code ? inviteLink(code) : null;
 
   const copy = async () => {
     if (!code) return;
@@ -205,21 +205,15 @@ function SpaceInviteCard({ spaceId, spaceName }: { spaceId: string; spaceName: s
   };
 
   const confirmRegenerate = () => {
-    Alert.alert(
+    confirmAction(
       "Régénérer le code ?",
       "L'ancien code cessera immédiatement de fonctionner. Les membres déjà présents gardent leur accès.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Régénérer",
-          style: "destructive",
-          onPress: () =>
-            regenerate.mutate(undefined, {
-              onSuccess: () => toast.success("Nouveau code généré"),
-              onError: (e) => toast.error(friendlyError(e)),
-            }),
-        },
-      ]
+      "Régénérer",
+      () =>
+        regenerate.mutate(undefined, {
+          onSuccess: () => toast.success("Nouveau code généré"),
+          onError: (e) => toast.error(friendlyError(e)),
+        }),
     );
   };
 

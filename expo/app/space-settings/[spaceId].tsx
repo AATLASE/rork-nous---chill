@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Camera, Film, Trash2, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { CoverAdjustModal } from "@/components/CoverAdjustModal";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Card, Screen, SectionHeader } from "@/components/ui/Card";
@@ -15,6 +15,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { pickCoverImage, PickedAsset, uploadMedia } from "@/lib/media";
 import { isOwner } from "@/lib/types";
+import { confirmAction } from "@/lib/confirm";
 import { useDeleteSpace, useSpace, useUpdateSpace } from "@/hooks/useSpaces";
 import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
@@ -113,22 +114,20 @@ export default function SpaceSettingsScreen() {
   };
 
   const confirmDelete = () => {
-    Alert.alert("Supprimer l'espace ?", `« ${space.name} » et tout son contenu seront définitivement supprimés. Cette action est irréversible.`, [
-      { text: "Annuler", style: "cancel" },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteSpace.mutateAsync(spaceId);
-            toast.success("Espace supprimé");
-            router.replace("/");
-          } catch (e) {
-            toast.error(friendlyError(e));
-          }
-        },
+    confirmAction(
+      "Supprimer l'espace ?",
+      `« ${space.name} » et tout son contenu seront définitivement supprimés. Cette action est irréversible.`,
+      "Supprimer",
+      async () => {
+        try {
+          await deleteSpace.mutateAsync(spaceId);
+          toast.success("Espace supprimé");
+          router.replace("/");
+        } catch (e) {
+          toast.error(friendlyError(e));
+        }
       },
-    ]);
+    );
   };
 
   const coverPreview = newCover?.uri ?? space.cover_url;

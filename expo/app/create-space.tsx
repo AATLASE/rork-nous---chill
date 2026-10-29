@@ -1,6 +1,5 @@
 import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
-import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { Camera, Check, Copy, Film, Share2, Sparkles, X } from "lucide-react-native";
 import { useState } from "react";
@@ -18,6 +17,7 @@ import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
 import { PickedAsset, pickCoverImage, uploadMedia } from "@/lib/media";
 import type { Space } from "@/lib/types";
+import { inviteLink } from "@/lib/pendingInvite";
 import { useCreateSpace, useUpdateSpace } from "@/hooks/useSpaces";
 import { useActiveSpace } from "@/providers/activeSpace";
 import { useAuth } from "@/providers/auth";
@@ -103,7 +103,7 @@ export default function CreateSpaceScreen() {
   };
 
   if (created) {
-    const link = created.code ? Linking.createURL("join", { queryParams: { code: created.code } }) : null;
+    const link = created.code ? inviteLink(created.code) : null;
     const shareInvite = async () => {
       if (!created.code) return;
       await Share.share({

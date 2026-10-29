@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Clapperboard, Film, Lock, Share2, Sparkles, Users } from "lucide-react-native";
 import React from "react";
-import { Alert, RefreshControl, Share, View } from "react-native";
+import { RefreshControl, Share, View } from "react-native";
 import { SpaceSwitcher } from "@/components/SpaceSwitcher";
 import { InlineVideo } from "@/components/VideoSurface";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,7 @@ import { friendlyError } from "@/lib/errors";
 import { formatDate, getSeasonStatus } from "@/lib/format";
 import type { Synthese } from "@/lib/types";
 import { isOwner } from "@/lib/types";
+import { confirmAction } from "@/lib/confirm";
 import { useEpisodes } from "@/hooks/useEpisodes";
 import { useMembers } from "@/hooks/useMembers";
 import { useSynthese } from "@/hooks/useProfile";
@@ -89,24 +90,18 @@ export default function RecapScreen() {
   const owner = isOwner(space.membership);
 
   const onUnlock = () => {
-    Alert.alert(
+    confirmAction(
       "Débloquer la saison ?",
       "Les épisodes où tout le monde a répondu se sont déjà révélés tout seuls. Débloquer la saison force les autres : les reviews encore scellées seront montrées au groupe, même incomplètes 🎬",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Débloquer",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await updateSpace.mutateAsync({ spaceId, patch: { season_unlocked: true } });
-              toast.success("Saison débloquée 🎉");
-            } catch (e) {
-              toast.error(friendlyError(e));
-            }
-          },
-        },
-      ]
+      "Débloquer",
+      async () => {
+        try {
+          await updateSpace.mutateAsync({ spaceId, patch: { season_unlocked: true } });
+          toast.success("Saison débloquée 🎉");
+        } catch (e) {
+          toast.error(friendlyError(e));
+        }
+      },
     );
   };
 
