@@ -8,6 +8,7 @@ import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BrandSplash } from "@/components/BrandSplash";
+import { InstallBanner } from "@/components/InstallBanner";
 import { UploadStatus } from "@/components/UploadStatus";
 import { AppText } from "@/components/ui/Text";
 import { colors, spacing } from "@/constants/theme";
@@ -106,6 +107,8 @@ function RootNav() {
         <Stack.Screen name="review/[episodeId]" options={{ presentation: "modal" }} />
         <Stack.Screen name="create-episode/[spaceId]" options={{ presentation: "modal" }} />
       </Stack>
+      {/* After the splash, so the offer never competes with the brand moment. */}
+      {splashVisible ? null : <InstallBanner />}
       {splashVisible ? (
         <BrandSplash done={!initializing} onHidden={() => setSplashVisible(false)} />
       ) : null}
