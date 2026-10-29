@@ -85,23 +85,26 @@ export function useUpsertReview() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ episodeId, spaceId, values }: UpsertReviewInput): Promise<Review> => {
-      const { data: existing } = await supabase
+      const updateMine = async () => {
+        const { data, error } = await supabase
+          .from("reviews")
+          .update({ ...values, updated_at: new Date().toISOString() })
+          .eq("episode_id", episodeId)
+          .eq("author_id", userId as string)
+          .select("*")
+          .single();
+        if (error) throw error;
+        return data as Review;
+      };
+
+      const { data: existing, error: lookupError } = await supabase
         .from("reviews")
         .select("id")
         .eq("episode_id", episodeId)
         .eq("author_id", userId as string)
         .maybeSingle();
-
-      if (existing) {
-        const { data, error } = await supabase
-          .from("reviews")
-          .update({ ...values, updated_at: new Date().toISOString() })
-          .eq("id", (existing as { id: string }).id)
-          .select("*")
-          .single();
-        if (error) throw error;
-        return data as Review;
-      }
+      if (lookupError) throw lookupError;
+      if (existing) return updateMine();
 
       const { data, error } = await supabase
         .from("reviews")
@@ -109,6 +112,9 @@ export function useUpsertReview() {
         .insert({ episode_id: episodeId, author_id: userId, space_id: spaceId, author_name: profile?.name ?? "Membre", ...values })
         .select("*")
         .single();
+      // A double tap sends two inserts; the database keeps one review per
+      // author and episode (unique constraint), so the second becomes an edit.
+      if (error?.code === "23505") return updateMine();
       if (error) throw error;
       return data as Review;
     },
