@@ -13,7 +13,7 @@ import { FadeIn, Pulse } from "@/components/ui/motion";
 import { AppText } from "@/components/ui/Text";
 import { colors, radius, spacing } from "@/constants/theme";
 import { friendlyError } from "@/lib/errors";
-import { formatDate, getSeasonStatus } from "@/lib/format";
+import { formatDate, getSeasonStatus, type SeasonStatus } from "@/lib/format";
 import type { Synthese } from "@/lib/types";
 import { isOwner } from "@/lib/types";
 import { confirmAction } from "@/lib/confirm";
@@ -49,6 +49,19 @@ function StatBox({ label, value, icon }: { label: string; value: number; icon: R
       <AppText variant="caption">{label}</AppText>
     </Card>
   );
+}
+
+/**
+ * What the sealed season card says. A space without an end date has no
+ * countdown: it used to read "La saison touche à sa fin" from day one, and a
+ * season not started yet counted its days as if it were running.
+ */
+function sealedText(status: SeasonStatus): string {
+  const reveal = "Chaque épisode se révèle de son côté quand tout le monde a publié sa review — le bilan, lui, attend la fin.";
+  if (status.state === "upcoming") return `La saison n'a pas encore commencé. ${reveal}`;
+  if (status.daysLeft === null) return `Pas de date de fin pour cette saison : le propriétaire débloque le bilan quand le groupe est prêt. ${reveal}`;
+  if (status.daysLeft > 0) return `Encore ${status.daysLeft} jour${status.daysLeft > 1 ? "s" : ""} de saison. ${reveal}`;
+  return "La saison touche à sa fin. Place au grand moment de vérité.";
 }
 
 export default function RecapScreen() {
@@ -129,16 +142,17 @@ export default function RecapScreen() {
               <View style={{ alignItems: "center", gap: 6 }}>
                 <AppText variant="h2" center style={{ color: colors.onHero }}>Le bilan est scellé</AppText>
                 <AppText variant="bodyMuted" center style={{ maxWidth: 320, color: colors.onHeroMuted }}>
-                  {status.daysLeft && status.daysLeft > 0
-                    ? `Encore ${status.daysLeft} jour${status.daysLeft > 1 ? "s" : ""} de saison. Chaque épisode se révèle de son côté quand tout le monde a publié sa review — le bilan, lui, attend la fin.`
-                    : "La saison touche à sa fin. Place au grand moment de vérité."}
+                  {sealedText(status)}
                 </AppText>
               </View>
 
               {status.daysLeft !== null ? (
                 <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
                   <AppText style={{ fontSize: 56, fontWeight: "800", color: colors.onHero, letterSpacing: -2 }}>{status.daysLeft}</AppText>
-                  <AppText variant="h3" style={{ color: colors.onHeroMuted }}>jours</AppText>
+                  <AppText variant="h3" style={{ color: colors.onHeroMuted }}>
+                    {status.daysLeft > 1 ? "jours" : "jour"}
+                    {status.state === "upcoming" ? " avant le début" : ""}
+                  </AppText>
                 </View>
               ) : null}
 
